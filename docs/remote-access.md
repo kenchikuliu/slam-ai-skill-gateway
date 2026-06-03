@@ -10,7 +10,7 @@ Do not commit real access keys, bearer tokens, or files under `tmp/`.
 Remote callers need two values:
 
 ```text
-base URL = LAN URL or current tunnelto public URL
+base URL = LAN URL, current Cloudflare Quick Tunnel URL, or current tunnelto public URL
 token    = SLAM gateway bearer token
 ```
 
@@ -19,6 +19,7 @@ Current implementation detail:
 - All remote computers use the same base URL while the same gateway/tunnel is running.
 - All remote computers use the same SLAM gateway bearer token.
 - The gateway does not yet issue per-computer or per-user tokens.
+- The Cloudflare Quick Tunnel URL can change after cloudflared restarts.
 - The tunnelto base URL can change after tunnelto restarts unless a fixed subdomain is configured.
 - The SLAM gateway bearer token stays the same until the host config is changed.
 
@@ -26,6 +27,7 @@ Current implementation detail:
 
 There are two different credentials:
 
+- `Cloudflare account/token`: not needed for Quick Tunnel; needed only for a stable named tunnel.
 - `tunnelto access key`: used only on the host machine to open the public tunnel.
 - `SLAM gateway bearer token`: used by other computers in the HTTP `Authorization` header.
 
@@ -44,8 +46,8 @@ The remote computer does not need to copy the PDF corpus, extracted markdown, or
 Graphify outputs. It should call:
 
 ```powershell
-# Use either the current tunnelto URL or the host LAN URL.
-$base = "https://current-tunnelto-url"
+# Use the current Cloudflare/tunnelto URL, or the host LAN URL.
+$base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
 
@@ -73,13 +75,26 @@ $cfg = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-
 $cfg.token
 ```
 
+The current Cloudflare Quick Tunnel URL is stored in:
+
+```text
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_8766.state.json
+```
+
+Read the current Cloudflare public URL on the host:
+
+```powershell
+$state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_8766.state.json" -Raw | ConvertFrom-Json
+$state.urls | Where-Object { $_ -like "https://*.trycloudflare.com*" } | Select-Object -First 1
+```
+
 The current tunnelto URL is stored in:
 
 ```text
 C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\tunnelto_8766.state.json
 ```
 
-Read the current public URL on the host:
+Read the current tunnelto public URL on the host:
 
 ```powershell
 $state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\tunnelto_8766.state.json" -Raw | ConvertFrom-Json
@@ -88,11 +103,11 @@ $state.urls | Where-Object { $_ -like "https://*.tunn.dev*" } | Select-Object -F
 
 ## Outside The LAN
 
-For a computer that is not on the same LAN, use the tunnelto public URL as the
-base URL:
+For a computer that is not on the same LAN, use the Cloudflare Quick Tunnel URL
+or tunnelto public URL as the base URL:
 
 ```powershell
-$base = "https://current-tunnelto-url"
+$base = "https://current-trycloudflare-or-tunnelto-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -110,6 +125,11 @@ Invoke-WebRequest "$base/status"
 ```
 
 Expected result without bearer token: HTTP `401 Unauthorized`.
+
+Cloudflare Quick Tunnel note: account-less `trycloudflare.com` tunnels are
+useful for remote testing but do not provide a fixed URL or uptime guarantee.
+Use a named Cloudflare Tunnel with a Cloudflare account/domain for long-lived
+production access.
 
 ## Same LAN
 
@@ -156,6 +176,13 @@ cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_gateway_from_env.ps1
 ```
 
+Start or restart Cloudflare Quick Tunnel:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1
+```
+
 Install the current tunnelto client:
 
 ```powershell
@@ -168,7 +195,7 @@ Store the tunnelto access key locally on the host:
 tunnelto set-auth --key "your-tunnelto-access-key"
 ```
 
-Start or restart the tunnel:
+Start or restart tunnelto:
 
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
@@ -239,7 +266,7 @@ python -m slam_ai_gateway.http_server --host 0.0.0.0 --port 8766
 Trigger the daily closed loop remotely:
 
 ```powershell
-$base = "https://current-tunnelto-url-or-lan-url"
+$base = "https://current-trycloudflare-or-tunnelto-or-lan-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod `
@@ -261,5 +288,5 @@ python -m slam_ai_gateway.mcp_server
 That works for an MCP client running on the same machine, or on another machine
 that has its own repo checkout and corpus access.
 
-For other computers today, use the HTTP API through LAN or tunnelto. Remote MCP
-over HTTP/SSE is not implemented yet.
+For other computers today, use the HTTP API through LAN, Cloudflare Quick
+Tunnel, or tunnelto. Remote MCP over HTTP/SSE is not implemented yet.

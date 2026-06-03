@@ -55,8 +55,8 @@ Use these endpoints when another computer should treat this host as the data
 backend for its `slam-ai` skill workflow:
 
 ```powershell
-# Use either the current tunnelto URL or the host LAN URL.
-$base = "https://current-tunnelto-url"
+# Use the current Cloudflare/tunnelto URL, or the host LAN URL.
+$base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
 
@@ -180,6 +180,44 @@ For LAN access, allow the port on the host machine if needed:
 
 Use a token when binding to `0.0.0.0`.
 
+## Public Tunnel With Cloudflare Quick Tunnel
+
+Cloudflare Quick Tunnel can expose the local gateway without a Cloudflare
+account. The generated `*.trycloudflare.com` URL is temporary and can change
+after restart. For a stable production URL, use a named Cloudflare Tunnel with a
+Cloudflare account and domain.
+
+Download `cloudflared.exe` into the ignored `tools\` directory, then start the
+tunnel:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1
+```
+
+The script forwards:
+
+```text
+https://<random>.trycloudflare.com -> http://localhost:8766
+```
+
+It writes state and logs to:
+
+```text
+tmp\cloudflare_8766.state.json
+tmp\cloudflare_8766.out.log
+tmp\cloudflare_8766.err.log
+```
+
+Read the current URL:
+
+```powershell
+$state = Get-Content -LiteralPath ".\tmp\cloudflare_8766.state.json" -Raw | ConvertFrom-Json
+$state.urls | Select-Object -First 1
+```
+
+Remote callers still need the SLAM gateway bearer token for every endpoint
+except `/health`.
+
 ## Public Tunnel With tunnelto
 
 This can expose the local gateway to computers outside the current LAN. The
@@ -245,6 +283,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_gateway_
 For login-time startup, create a `.cmd` in the Windows Startup folder that calls
 the same script. Keep the token in the local config file, not in Git.
 
-To also restart the public tunnel at login, create another Startup `.cmd` that
-calls `scripts\start_tunnelto_tunnel.ps1`. The tunnelto key should stay in the
-local `set-auth` store.
+To also restart a public tunnel at login, create another Startup `.cmd` that
+calls either `scripts\start_cloudflare_quick_tunnel.ps1` or
+`scripts\start_tunnelto_tunnel.ps1`. The tunnelto key should stay in the local
+`set-auth` store.
