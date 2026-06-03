@@ -110,7 +110,20 @@ $Process = Start-Process `
     -WindowStyle Hidden `
     -PassThru
 
-Start-Sleep -Seconds 3
+for ($Attempt = 0; $Attempt -lt 10; $Attempt++) {
+    Start-Sleep -Seconds 1
+    $Process.Refresh()
+    if ($Process.HasExited) {
+        break
+    }
+}
+
+$Status = if ($Process.HasExited) { "exited" } else { "running" }
+$ExitCode = if ($Process.HasExited) { $Process.ExitCode } else { $null }
+$StderrTail = ""
+if (Test-Path -LiteralPath $Stderr) {
+    $StderrTail = (Get-Content -LiteralPath $Stderr -Tail 20 -ErrorAction SilentlyContinue) -join "`n"
+}
 
 $State = [ordered]@{
     pid = $Process.Id
@@ -126,8 +139,14 @@ $State = [ordered]@{
     forward_spec = $ForwardSpec
     stdout = $Stdout
     stderr = $Stderr
-    status = if ($Process.HasExited) { "exited" } else { "running" }
+    status = $Status
+    exit_code = $ExitCode
+    stderr_tail = $StderrTail
 }
 
 $State | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 Write-Output ($State | ConvertTo-Json -Depth 4)
+
+if ($Process.HasExited) {
+    exit 1
+}
