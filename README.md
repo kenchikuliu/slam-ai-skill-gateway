@@ -124,13 +124,30 @@ python -m slam_ai_gateway.http_server
 For LAN access, allow the port on the host machine if needed:
 
 ```powershell
-New-NetFirewallRule `
-  -DisplayName "SLAM AI Gateway 8765" `
-  -Direction Inbound `
-  -Action Allow `
-  -Protocol TCP `
-  -LocalPort 8765
+.\scripts\register_firewall_rule.ps1 -Port 8766 -DisplayName "SLAM AI Gateway 8766"
 ```
 
 Use a token when binding to `0.0.0.0`.
 
+## Startup On Windows
+
+Create a local config file outside Git, for example:
+
+```json
+{
+  "host": "0.0.0.0",
+  "port": 8766,
+  "token": "change-this-token",
+  "corpus_root": "C:\\Users\\Administrator\\Downloads\\3DGS-SLAM-Papers",
+  "log": "C:\\Users\\Administrator\\Downloads\\slam-ai-skill-gateway\\tmp\\gateway_8766.log"
+}
+```
+
+Then run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_gateway_from_env.ps1
+```
+
+For login-time startup, create a `.cmd` in the Windows Startup folder that calls
+the same script. Keep the token in the local config file, not in Git.
