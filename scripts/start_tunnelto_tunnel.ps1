@@ -25,15 +25,25 @@ if (-not $Token -and $env:TUNNELTO_KEY) {
 }
 
 if (-not $TunneltoExe) {
-    $TunneltoExe = Join-Path $RepoRoot "tools\tunnelto-windows.exe"
+    $InstalledTunnelto = Join-Path $env:USERPROFILE ".cargo\bin\tunnelto.exe"
+    $DownloadedTunnelto = Join-Path $RepoRoot "tools\tunnelto-windows.exe"
+    if (Test-Path -LiteralPath $InstalledTunnelto) {
+        $TunneltoExe = $InstalledTunnelto
+    } else {
+        $TunneltoExe = $DownloadedTunnelto
+    }
 }
 
 if (-not (Test-Path -LiteralPath $TunneltoExe)) {
     throw "tunnelto executable not found: $TunneltoExe"
 }
 
-if (-not $Token) {
-    throw "Missing tunnelto access key. Set TUNNELTO_KEY or add tunnelto_key to $ConfigPath. Get one from https://dashboard.tunnelto.dev"
+$StoredKeyPath = Join-Path $env:USERPROFILE ".tunnelto\key.token"
+$AuthSource = "stored"
+if ($Token) {
+    $AuthSource = "argument"
+} elseif (-not (Test-Path -LiteralPath $StoredKeyPath)) {
+    throw "Missing tunnelto access key. Run tunnelto set-auth --key <key>, set TUNNELTO_KEY, or add tunnelto_key to $ConfigPath. Get one from https://dashboard.tunnelto.dev"
 }
 
 $TmpDir = Join-Path $RepoRoot "tmp"
@@ -44,13 +54,20 @@ $Stderr = Join-Path $TmpDir "tunnelto_$Port.err.log"
 $StatePath = Join-Path $TmpDir "tunnelto_$Port.state.json"
 
 $Existing = Get-Process -ErrorAction SilentlyContinue |
-    Where-Object { $_.Path -eq $TunneltoExe }
+    Where-Object {
+        $_.Path -eq $TunneltoExe -or
+        $_.Path -eq (Join-Path $RepoRoot "tools\tunnelto-windows.exe") -or
+        $_.Path -eq (Join-Path $env:USERPROFILE ".cargo\bin\tunnelto.exe")
+    }
 
 if ($Existing) {
     $Existing | Stop-Process -Force
 }
 
-$Args = @("--port", "$Port", "--host", $LocalHost, "--key", $Token)
+$Args = @("--port", "$Port", "--host", $LocalHost)
+if ($Token) {
+    $Args += @("--key", $Token)
+}
 if ($Subdomain) {
     $Args += @("--subdomain", $Subdomain)
 }
@@ -88,9 +105,11 @@ $Urls = [regex]::Matches($Output, $UrlPattern) | ForEach-Object { $_.Value } | S
 $State = [ordered]@{
     pid = $Process.Id
     started_at = (Get-Date).ToString("s")
+    tunnelto_exe = $TunneltoExe
     port = $Port
     local_host = $LocalHost
     subdomain = $Subdomain
+    auth_source = $AuthSource
     stdout = $Stdout
     stderr = $Stderr
     urls = @($Urls)

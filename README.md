@@ -135,22 +135,24 @@ This can expose the local gateway to computers outside the current LAN. The
 public tunnel still forwards to the token-protected SLAM API, so keep both the
 tunnelto access key and the gateway bearer token out of Git.
 
-Download the Windows binary if it is not already present:
+Install the current tunnelto client:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path .\tools | Out-Null
-Invoke-WebRequest `
-  -Uri "https://github.com/agrinman/tunnelto/releases/download/0.1.18/tunnelto-windows.exe" `
-  -OutFile .\tools\tunnelto-windows.exe
+cargo install tunnelto --version 0.1.20 --locked
 ```
 
-Create a local tunnel config under `tmp\tunnelto_8766.env.json`:
+Store your tunnelto access key locally:
+
+```powershell
+tunnelto set-auth --key "your-tunnelto-access-key"
+```
+
+Optionally create a local tunnel config under `tmp\tunnelto_8766.env.json`:
 
 ```json
 {
   "port": 8766,
   "local_host": "localhost",
-  "tunnelto_key": "your-tunnelto-access-key",
   "subdomain": ""
 }
 ```
@@ -161,9 +163,9 @@ Then start the tunnel:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_tunnelto_tunnel.ps1
 ```
 
-The script writes tunnel state and logs to `tmp\tunnelto_8766.*`. If no
-`tunnelto_key` is supplied, the public service rejects the connection and asks
-for an access key from `https://dashboard.tunnelto.dev`.
+The script writes tunnel state and logs to `tmp\tunnelto_8766.*`. It uses the
+stored tunnelto key by default. You can also supply `TUNNELTO_KEY` or
+`tunnelto_key` in the local config if you do not want to use `set-auth`.
 
 ## Startup On Windows
 
@@ -187,3 +189,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_gateway_
 
 For login-time startup, create a `.cmd` in the Windows Startup folder that calls
 the same script. Keep the token in the local config file, not in Git.
+
+To also restart the public tunnel at login, create another Startup `.cmd` that
+calls `scripts\start_tunnelto_tunnel.ps1`. The tunnelto key should stay in the
+local `set-auth` store.
