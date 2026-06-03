@@ -32,6 +32,32 @@ There are two different credentials:
 Do not give the tunnelto access key to remote callers. Remote callers only need
 the SLAM gateway bearer token.
 
+## Use This Host As The slam-ai Data Interface
+
+For another computer, the cleanest agent/skill workflow is:
+
+```text
+remote slam-ai skill or agent -> HTTP base URL + bearer token -> this host corpus
+```
+
+The remote computer does not need to copy the PDF corpus, extracted markdown, or
+Graphify outputs. It should call:
+
+```powershell
+# Use either the current tunnelto URL or the host LAN URL.
+$base = "https://current-tunnelto-url"
+# $base = "http://HOST_IP:8766"
+$token = "paste-the-slam-gateway-bearer-token"
+
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
+```
+
+`/skill` is the discovery manifest for the remote skill data interface.
+`/skill/context` is the main agent-facing endpoint for paper-writing or
+literature-search context. It returns corpus status, paper candidates,
+extracted-text snippets when markdown exists, and optional graph summary.
+
 ## Host-Side State
 
 On the host machine, the gateway config and token are stored in:
@@ -70,6 +96,8 @@ $base = "https://current-tunnelto-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/status"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/papers?q=gaussian%20slam&limit=5"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/search?q=loop%20closure&limit=5"
@@ -106,6 +134,8 @@ $base = "http://HOST_LAN_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/status"
 ```
 
@@ -156,6 +186,8 @@ GET /health
 Bearer token required:
 
 ```text
+GET /skill
+GET /skill/context?q=<query>&category=<category>&paper_limit=10&text_limit=5&include_graph_summary=false
 GET /status
 GET /graph/summary
 GET /papers?q=<query>&category=<category>&limit=25

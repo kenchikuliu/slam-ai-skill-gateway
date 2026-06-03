@@ -51,6 +51,25 @@ def tool_schema() -> list[dict[str, Any]]:
             "inputSchema": {"type": "object", "properties": {}},
         },
         {
+            "name": "slam_skill_manifest",
+            "description": "Return the remote slam-ai skill data-interface manifest, including endpoints and usage rules.",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "slam_skill_context",
+            "description": "Return an agent-friendly slam-ai context bundle with paper candidates, text snippets, status, and optional graph summary.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "category": {"type": "string"},
+                    "paper_limit": {"type": "integer", "default": 10},
+                    "text_limit": {"type": "integer", "default": 5},
+                    "include_graph_summary": {"type": "boolean", "default": False},
+                },
+            },
+        },
+        {
             "name": "slam_search_papers",
             "description": "Search paper nodes by title, source file, category, or id. Falls back to local PDF filenames when graph outputs are absent.",
             "inputSchema": {
@@ -144,6 +163,18 @@ class McpGateway:
         args = params.get("arguments", {}) or {}
         if name == "slam_status":
             return text_result(self.gateway.status())
+        if name == "slam_skill_manifest":
+            return text_result(self.gateway.skill_manifest())
+        if name == "slam_skill_context":
+            return text_result(
+                self.gateway.skill_context(
+                    query=str(args.get("query", "")),
+                    category=str(args.get("category", "")),
+                    paper_limit=int(args.get("paper_limit", 10)),
+                    text_limit=int(args.get("text_limit", 5)),
+                    include_graph_summary=bool(args.get("include_graph_summary", False)),
+                )
+            )
         if name == "slam_search_papers":
             return text_result(
                 self.gateway.list_papers(

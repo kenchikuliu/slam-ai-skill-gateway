@@ -62,6 +62,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/status":
                 self.send_json(200, self.gateway.status())
+            elif parsed.path == "/skill":
+                self.send_json(200, self.gateway.skill_manifest())
+            elif parsed.path == "/skill/context":
+                self.send_json(
+                    200,
+                    self.gateway.skill_context(
+                        query=first(qs, "q"),
+                        category=first(qs, "category"),
+                        paper_limit=int(first(qs, "paper_limit", "10")),
+                        text_limit=int(first(qs, "text_limit", "5")),
+                        include_graph_summary=bool_arg(first(qs, "include_graph_summary", "false")),
+                    ),
+                )
             elif parsed.path == "/graph/summary":
                 self.send_json(200, self.gateway.graph_summary())
             elif parsed.path == "/papers":
@@ -176,4 +189,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

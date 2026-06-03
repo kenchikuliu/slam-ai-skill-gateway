@@ -92,6 +92,96 @@ class CorpusGateway:
             "merged_neo4j": read_json(self.config.merged_neo4j_summary_path, {}),
         }
 
+    def skill_manifest(self) -> dict[str, Any]:
+        status = self.status()
+        return {
+            "name": "slam-ai",
+            "kind": "remote_skill_data_interface",
+            "description": (
+                "Remote data interface for the local SLAM / 3DGS-SLAM literature corpus. "
+                "Use it to retrieve paper lists, citation candidates, extracted-text snippets, "
+                "graph summaries, and daily update state from another computer."
+            ),
+            "auth": {
+                "type": "bearer",
+                "header": "Authorization: Bearer <SLAM_AI_GATEWAY_TOKEN>",
+            },
+            "corpus": {
+                "root": status.get("corpus_root", ""),
+                "paper_index_source": status.get("paper_index_source", ""),
+                "root_pdf_count": status.get("root_pdf_count", 0),
+                "recursive_pdf_count": status.get("recursive_pdf_count", 0),
+                "root_markdown_count": status.get("root_markdown_count", 0),
+                "pending_markdown_count": status.get("pending_markdown_count", 0),
+            },
+            "capabilities": [
+                "status",
+                "paper_search",
+                "paper_lookup",
+                "text_search_when_markdown_exists",
+                "pdf_fallback_when_graph_is_absent",
+                "graph_summary_when_graphify_outputs_exist",
+                "daily_loop_trigger_when_host_scripts_exist",
+                "agent_context_bundle",
+            ],
+            "endpoints": {
+                "health": "GET /health",
+                "manifest": "GET /skill",
+                "context": "GET /skill/context?q=<query>&paper_limit=10&text_limit=5",
+                "status": "GET /status",
+                "papers": "GET /papers?q=<query>&category=<category>&limit=25",
+                "paper": "GET /paper?id=<paper_id>&include_text=true&max_chars=6000",
+                "search": "GET /search?q=<query>&limit=10",
+                "daily_run": "POST /daily/run?force=false&wait=false&timeout=3600",
+            },
+            "usage_rules": [
+                "Use this interface as the data backend for remote slam-ai skill work.",
+                "Do not invent citations; cite only papers returned by the corpus, user bibliography, or verified sources.",
+                "For latest/recent claims, inspect daily_state and paper_index_source before claiming freshness.",
+                "If paper_index_source is pdf_fallback, /papers can list PDFs but /search and graph summaries may be empty until extraction/Graphify exists.",
+            ],
+        }
+
+    def skill_context(
+        self,
+        query: str = "",
+        category: str = "",
+        paper_limit: int = 10,
+        text_limit: int = 5,
+        include_graph_summary: bool = False,
+    ) -> dict[str, Any]:
+        query = query.strip()
+        paper_limit = max(1, min(paper_limit, 50))
+        text_limit = max(0, min(text_limit, 20))
+        status = self.status()
+        payload: dict[str, Any] = {
+            "skill": "slam-ai",
+            "query": query,
+            "instructions": [
+                "Use returned papers/snippets as SLAM citation and related-work context.",
+                "Do not treat PDF fallback filename matches as extracted paper content.",
+                "If text matches are empty, the corpus may not have extracted markdown for this machine.",
+            ],
+            "status": {
+                "corpus_root": status.get("corpus_root", ""),
+                "paper_index_source": status.get("paper_index_source", ""),
+                "root_pdf_count": status.get("root_pdf_count", 0),
+                "recursive_pdf_count": status.get("recursive_pdf_count", 0),
+                "root_markdown_count": status.get("root_markdown_count", 0),
+                "pending_markdown_count": status.get("pending_markdown_count", 0),
+                "daily_state": status.get("daily_state", {}),
+            },
+            "papers": self.list_papers(query=query, category=category, limit=paper_limit),
+            "text_matches": self.search_text(query=query, limit=text_limit) if query and text_limit else {
+                "query": query,
+                "count": 0,
+                "matches": [],
+            },
+        }
+        if include_graph_summary:
+            payload["graph_summary"] = self.graph_summary()
+        return payload
+
     def load_graph(self) -> dict[str, Any]:
         return read_json(self.config.merged_graph_path, {"nodes": [], "edges": [], "hyperedges": []})
 

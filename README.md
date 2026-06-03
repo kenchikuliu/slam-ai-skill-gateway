@@ -17,6 +17,7 @@ C:\Users\Administrator\Downloads\3DGS-SLAM-Papers
 - paper-node search
 - PDF-only fallback search when a machine has PDFs but no extracted markdown or Graphify outputs
 - extracted markdown text search
+- remote `slam-ai` skill manifest and agent context bundles
 - optional daily closed-loop trigger
 - MCP tools for agent clients
 
@@ -42,9 +43,34 @@ On another computer on the same network:
 ```powershell
 $token = "change-this-token"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } http://HOST_IP:8765/status
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } http://HOST_IP:8765/skill
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "http://HOST_IP:8765/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "http://HOST_IP:8765/papers?q=gaussian%20slam&limit=5"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "http://HOST_IP:8765/search?q=loop%20closure&limit=5"
 ```
+
+## Remote Skill Data Interface
+
+Use these endpoints when another computer should treat this host as the data
+backend for its `slam-ai` skill workflow:
+
+```powershell
+# Use either the current tunnelto URL or the host LAN URL.
+$base = "https://current-tunnelto-url"
+# $base = "http://HOST_IP:8766"
+$token = "paste-the-slam-gateway-bearer-token"
+
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
+```
+
+- `/skill` returns the discovery manifest, supported endpoints, corpus counts,
+  and usage rules.
+- `/skill/context` returns an agent-friendly bundle with status, paper
+  candidates, extracted-text snippets when available, and optional graph
+  summary.
+- Remote computers do not need the PDF corpus if they use these HTTP endpoints.
+  They only need the current base URL and the SLAM gateway bearer token.
 
 Trigger the daily loop remotely:
 
@@ -58,6 +84,8 @@ Invoke-RestMethod `
 ## Endpoints
 
 - `GET /health`
+- `GET /skill`
+- `GET /skill/context?q=<query>&category=<category>&paper_limit=10&text_limit=5&include_graph_summary=false`
 - `GET /status`
 - `GET /graph/summary`
 - `GET /papers?q=<query>&category=<category>&limit=25`
@@ -119,6 +147,8 @@ Example MCP client config:
 Tools:
 
 - `slam_status`
+- `slam_skill_manifest`
+- `slam_skill_context`
 - `slam_search_papers`
 - `slam_get_paper`
 - `slam_search_text`
