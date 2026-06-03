@@ -282,6 +282,14 @@ Start the Windows reverse SSH tunnel:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
 ```
 
+Optionally run a conservative watchdog on the Windows host. It checks the
+public `/slam-ai/health` endpoint and restarts the reverse SSH tunnel after
+consecutive failures:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_bandwagon_reverse_tunnel.ps1
+```
+
 For login-time startup on this Windows host, create a Startup `.cmd` that calls
 the same script. It can use `-SkipIfMissingConfig` so login startup stays quiet
 until `tmp\bandwagon_reverse_ssh.env.json` exists.

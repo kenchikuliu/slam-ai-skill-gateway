@@ -228,10 +228,20 @@ cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
 ```
 
+Optionally run the watchdog on the Windows host. It checks the public
+`/slam-ai/health` endpoint and restarts the reverse SSH tunnel only after
+consecutive failures, with a cooldown to avoid aggressive reconnect loops:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_bandwagon_reverse_tunnel.ps1
+```
+
 Windows login startup entry on this host:
 
 ```text
 C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-bandwagon-reverse-ssh.cmd
+C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-bandwagon-watchdog.cmd
 ```
 
 It calls the reverse-tunnel script with `-SkipIfMissingConfig`, so it stays

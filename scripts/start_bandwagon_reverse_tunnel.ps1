@@ -110,7 +110,7 @@ $Process = Start-Process `
     -WindowStyle Hidden `
     -PassThru
 
-for ($Attempt = 0; $Attempt -lt 10; $Attempt++) {
+for ($Attempt = 0; $Attempt -lt 30; $Attempt++) {
     Start-Sleep -Seconds 1
     $Process.Refresh()
     if ($Process.HasExited) {
