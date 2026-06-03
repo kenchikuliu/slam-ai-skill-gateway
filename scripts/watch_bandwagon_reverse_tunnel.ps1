@@ -2,9 +2,9 @@ param(
     [string]$RepoRoot = "C:\Users\Administrator\Downloads\slam-ai-skill-gateway",
     [string]$PublicBaseUrl = "http://83.229.126.28/slam-ai",
     [string]$LocalHealthUrl = "http://127.0.0.1:8766/health",
-    [int]$IntervalSeconds = 300,
+    [int]$IntervalSeconds = 60,
     [int]$TimeoutSeconds = 12,
-    [int]$FailureThreshold = 2,
+    [int]$FailureThreshold = 1,
     [int]$RestartCooldownSeconds = 300,
     [switch]$Once
 )

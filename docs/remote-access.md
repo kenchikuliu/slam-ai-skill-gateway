@@ -10,13 +10,14 @@ Do not commit real access keys, bearer tokens, or files under `tmp/`.
 Remote callers need two values:
 
 ```text
-base URL = fixed VPS/domain URL, LAN URL, current Cloudflare Quick Tunnel URL, or current tunnelto public URL
+base URL = read from the published endpoint manifest
 token    = SLAM gateway bearer token
 ```
 
 Current implementation detail:
 
-- All remote computers use the same base URL while the same gateway/tunnel is running.
+- All remote computers should read the published endpoint manifest and use
+  `active_base_url` instead of hard-coding the HK VPS URL.
 - All remote computers use the same SLAM gateway bearer token.
 - The gateway does not yet issue per-computer or per-user tokens.
 - A Bandwagon VPS or other VPS gives a stable IP/domain as long as the reverse SSH tunnel is running from this Windows host.
@@ -47,13 +48,12 @@ The remote computer does not need to copy the PDF corpus, extracted markdown, or
 Graphify outputs. It should call:
 
 ```powershell
-# Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
-$base = "https://your-domain.example"
-# $base = "http://VPS_IP/slam-ai"
-# $base = "https://current-trycloudflare-or-tunnelto-url"
-# $base = "http://HOST_IP:8766"
+# Prefer the published endpoint manifest instead of hard-coding one public URL.
+$manifest = Invoke-RestMethod "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+$base = $manifest.active_base_url
 $token = "paste-the-slam-gateway-bearer-token"
 
+Invoke-RestMethod "$base/health"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
 ```
@@ -62,6 +62,29 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
 `/skill/context` is the main agent-facing endpoint for paper-writing or
 literature-search context. It returns corpus status, paper candidates,
 extracted-text snippets when markdown exists, and optional graph summary.
+
+## Published Endpoint Manifest
+
+The public endpoint manifest is tracked in Git and contains no bearer token:
+
+```text
+https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json
+```
+
+Remote callers should select `active_base_url`, or the first endpoint with
+`health_ok=true` and the lowest `priority`. This prevents a remote machine from
+getting stuck on the HK VPS path proxy when its reverse SSH upstream is broken.
+
+Linux example:
+
+```bash
+manifest_url='https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json'
+export SLAM_AI_BASE_URL="$(curl -fsSL "$manifest_url" | python3 -c 'import json,sys; print(json.load(sys.stdin)["active_base_url"])')"
+export SLAM_AI_TOKEN='paste-the-slam-gateway-bearer-token'
+
+curl "$SLAM_AI_BASE_URL/health"
+curl -H "Authorization: Bearer $SLAM_AI_TOKEN" "$SLAM_AI_BASE_URL/skill"
+```
 
 ## Host-Side State
 
@@ -230,7 +253,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwago
 
 Optionally run the watchdog on the Windows host. It checks the public
 `/slam-ai/health` endpoint and restarts the reverse SSH tunnel only after
-consecutive failures, with a cooldown to avoid aggressive reconnect loops:
+failures, with a five-minute cooldown to avoid aggressive reconnect loops:
 
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
@@ -333,7 +356,14 @@ Start or restart Cloudflare Quick Tunnel:
 
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1 -UpdateEndpointManifest -CommitEndpointManifest
+```
+
+Start the Cloudflare Quick Tunnel watchdog:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_cloudflare_quick_tunnel.ps1
 ```
 
 Configure Bandwagon/VPS nginx and start the reverse SSH tunnel:

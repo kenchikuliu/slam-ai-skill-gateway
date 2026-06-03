@@ -55,13 +55,12 @@ Use these endpoints when another computer should treat this host as the data
 backend for its `slam-ai` skill workflow:
 
 ```powershell
-# Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
-$base = "https://your-domain.example"
-# $base = "http://VPS_IP/slam-ai"
-# $base = "https://current-trycloudflare-or-tunnelto-url"
-# $base = "http://HOST_IP:8766"
+# Prefer the published endpoint manifest instead of hard-coding one public URL.
+$manifest = Invoke-RestMethod "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+$base = $manifest.active_base_url
 $token = "paste-the-slam-gateway-bearer-token"
 
+Invoke-RestMethod "$base/health"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
 Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
 ```
@@ -72,7 +71,10 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
   candidates, extracted-text snippets when available, and optional graph
   summary.
 - Remote computers do not need the PDF corpus if they use these HTTP endpoints.
-  They only need the current base URL and the SLAM gateway bearer token.
+  They only need the endpoint manifest and the SLAM gateway bearer token.
+- The endpoint manifest contains no token. It selects the lowest-priority
+  healthy endpoint, currently preferring Cloudflare Quick Tunnel when the HK VPS
+  reverse SSH tunnel is unhealthy.
 
 Trigger the daily loop remotely:
 
@@ -196,6 +198,13 @@ tunnel:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1
 ```
 
+To refresh the published endpoint manifest after a new Quick Tunnel URL is
+created:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1 -UpdateEndpointManifest -CommitEndpointManifest
+```
+
 The script forwards:
 
 ```text
@@ -219,6 +228,11 @@ $state.urls | Select-Object -First 1
 
 Remote callers still need the SLAM gateway bearer token for every endpoint
 except `/health`.
+
+For login-time resilience on this Windows host, run
+`scripts\watch_cloudflare_quick_tunnel.ps1`. It restarts Cloudflare Quick Tunnel
+when the current `*.trycloudflare.com` URL stops answering `/health`, then
+updates and pushes `public/slam-ai-endpoints.json`.
 
 ## Fixed Public Entry With Bandwagon VPS
 
@@ -284,7 +298,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwago
 
 Optionally run a conservative watchdog on the Windows host. It checks the
 public `/slam-ai/health` endpoint and restarts the reverse SSH tunnel after
-consecutive failures:
+failures, with a five-minute restart cooldown:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_bandwagon_reverse_tunnel.ps1

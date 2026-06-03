@@ -4,6 +4,8 @@ param(
     [int]$Port = 8766,
     [string]$LocalHost = "localhost",
     [int]$WaitForGatewaySeconds = 45,
+    [switch]$UpdateEndpointManifest,
+    [switch]$CommitEndpointManifest,
     [switch]$Foreground
 )
 
@@ -112,3 +114,17 @@ $State = [ordered]@{
 
 $State | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 Write-Output ($State | ConvertTo-Json -Depth 4)
+
+if ($UpdateEndpointManifest) {
+    $ManifestScript = Join-Path $RepoRoot "scripts\update_public_endpoint_manifest.ps1"
+    if (-not (Test-Path -LiteralPath $ManifestScript)) {
+        throw "Missing endpoint manifest script: $ManifestScript"
+    }
+    $ManifestArgs = @(
+        "-RepoRoot", $RepoRoot
+    )
+    if ($CommitEndpointManifest) {
+        $ManifestArgs += "-CommitAndPush"
+    }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ManifestScript @ManifestArgs
+}
