@@ -164,6 +164,46 @@ GET /search?q=<query>&limit=10
 POST /daily/run?force=false&wait=false&timeout=3600
 ```
 
+## PDF-Only Corpus Fallback
+
+If the remote machine only has PDFs, such as:
+
+```text
+/home/slam/slam_papers
+```
+
+and does not have extracted markdown or Graphify/merged graph outputs, the
+gateway now falls back to a PDF index:
+
+```text
+/papers -> scans SLAM_AI_CORPUS_ROOT recursively for *.pdf
+/paper  -> can look up by PDF relative path, file name, or file stem
+/search -> still requires extracted markdown and may return no matches
+/graph/summary -> still requires Graphify outputs and may be empty
+```
+
+Check the active indexing mode:
+
+```powershell
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/status"
+```
+
+Expected field for a PDF-only directory:
+
+```json
+{
+  "paper_index_source": "pdf_fallback"
+}
+```
+
+Linux example:
+
+```bash
+export SLAM_AI_CORPUS_ROOT=/home/slam/slam_papers
+export SLAM_AI_GATEWAY_TOKEN='change-this-token'
+python -m slam_ai_gateway.http_server --host 0.0.0.0 --port 8766
+```
+
 Trigger the daily closed loop remotely:
 
 ```powershell

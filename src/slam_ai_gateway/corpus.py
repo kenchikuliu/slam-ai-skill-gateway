@@ -27,6 +27,11 @@ def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
 
 
+def paper_label_from_pdf(path: Path) -> str:
+    label = re.sub(r"[_\-]+", " ", path.stem)
+    return normalize_text(label)
+
+
 @dataclass
 class DailyRunResult:
     started: bool
@@ -63,8 +68,10 @@ class CorpusGateway:
         return {
             "corpus_root": str(root),
             "root_pdf_count": root_pdfs,
+            "recursive_pdf_count": len(self.list_pdf_paths()) if root.exists() else 0,
             "root_markdown_count": root_markdown,
             "pending_markdown_count": max(0, root_pdfs - root_markdown),
+            "paper_index_source": self.paper_index_source(),
             "daily_state": daily_state,
             "root_graph_summary": root_graph,
             "merged_review": {
@@ -88,37 +95,77 @@ class CorpusGateway:
     def load_graph(self) -> dict[str, Any]:
         return read_json(self.config.merged_graph_path, {"nodes": [], "edges": [], "hyperedges": []})
 
+    def document_nodes(self) -> list[dict[str, Any]]:
+        graph = self.load_graph()
+        return [node for node in graph.get("nodes", []) if node.get("file_type") == "document"]
+
+    def paper_index_source(self) -> str:
+        return "merged_graph" if self.document_nodes() else "pdf_fallback"
+
+    def list_pdf_paths(self) -> list[Path]:
+        root = self.config.corpus_root
+        if not root.exists():
+            return []
+        return sorted(path for path in root.rglob("*.pdf") if path.is_file())
+
+    def pdf_rows(self) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        root = self.config.corpus_root
+        for path in self.list_pdf_paths():
+            try:
+                rel_path = path.relative_to(root).as_posix()
+            except ValueError:
+                rel_path = path.name
+            rows.append(
+                {
+                    "id": rel_path,
+                    "label": paper_label_from_pdf(path),
+                    "category": "local_pdf",
+                    "source_file": rel_path,
+                    "pdf_path": str(path),
+                    "source": "pdf_fallback",
+                }
+            )
+        return rows
+
     def list_papers(self, query: str = "", category: str = "", limit: int = 25) -> dict[str, Any]:
         query_lower = query.lower().strip()
         category_lower = category.lower().strip()
-        graph = self.load_graph()
         rows = []
-        for node in graph.get("nodes", []):
-            if node.get("file_type") != "document":
-                continue
-            haystack = " ".join(
-                str(node.get(key, "")) for key in ("id", "label", "category", "source_file")
-            ).lower()
-            if query_lower and query_lower not in haystack:
-                continue
-            if category_lower and str(node.get("category", "")).lower() != category_lower:
-                continue
-            rows.append(
+        source = "merged_graph"
+        document_nodes = self.document_nodes()
+        if document_nodes:
+            candidates = [
                 {
                     "id": node.get("id", ""),
                     "label": node.get("label", ""),
                     "category": node.get("category", ""),
                     "source_file": node.get("source_file", ""),
+                    "source": "merged_graph",
                 }
-            )
+                for node in document_nodes
+            ]
+        else:
+            source = "pdf_fallback"
+            candidates = self.pdf_rows()
+
+        for row in candidates:
+            haystack = " ".join(
+                str(row.get(key, "")) for key in ("id", "label", "category", "source_file", "pdf_path")
+            ).lower()
+            if query_lower and query_lower not in haystack:
+                continue
+            if category_lower and str(row.get("category", "")).lower() != category_lower:
+                continue
+            rows.append(row)
         rows.sort(key=lambda row: (row["category"], row["label"]))
         limit = max(1, min(limit, 200))
-        return {"count": len(rows), "limit": limit, "papers": rows[:limit]}
+        return {"count": len(rows), "limit": limit, "source": source, "papers": rows[:limit]}
 
     def get_paper(self, paper_id: str, include_text: bool = False, max_chars: int = 6000) -> dict[str, Any]:
-        graph = self.load_graph()
         target = None
-        for node in graph.get("nodes", []):
+        source = "merged_graph"
+        for node in self.document_nodes():
             candidates = {
                 str(node.get("id", "")),
                 str(node.get("source_file", "")),
@@ -128,12 +175,30 @@ class CorpusGateway:
                 target = node
                 break
         if not target:
+            source = "pdf_fallback"
+            for row in self.pdf_rows():
+                source_file = Path(str(row.get("source_file", "")))
+                pdf_path = Path(str(row.get("pdf_path", "")))
+                candidates = {
+                    str(row.get("id", "")),
+                    str(row.get("source_file", "")),
+                    str(row.get("label", "")),
+                    source_file.name,
+                    source_file.stem,
+                    pdf_path.name,
+                    pdf_path.stem,
+                }
+                if paper_id in candidates:
+                    target = row
+                    break
+        if not target:
             return {"found": False, "paper_id": paper_id}
 
         markdown_path = self.find_markdown(str(target.get("source_file", "")))
         payload: dict[str, Any] = {
             "found": True,
             "paper": target,
+            "source": source,
             "markdown_path": str(markdown_path) if markdown_path else "",
         }
         if include_text and markdown_path:

@@ -47,12 +47,12 @@ def tool_schema() -> list[dict[str, Any]]:
     return [
         {
             "name": "slam_status",
-            "description": "Return SLAM AI corpus counts, daily-loop state, and graph summaries.",
+            "description": "Return SLAM AI corpus counts, paper index source, daily-loop state, and graph summaries.",
             "inputSchema": {"type": "object", "properties": {}},
         },
         {
             "name": "slam_search_papers",
-            "description": "Search paper nodes by title, source file, category, or id.",
+            "description": "Search paper nodes by title, source file, category, or id. Falls back to local PDF filenames when graph outputs are absent.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -64,7 +64,7 @@ def tool_schema() -> list[dict[str, Any]]:
         },
         {
             "name": "slam_get_paper",
-            "description": "Get a paper node and optional markdown excerpt by id, title, or source file.",
+            "description": "Get a paper node or PDF fallback entry and optional markdown excerpt by id, title, source file, filename, or stem.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

@@ -15,6 +15,7 @@ C:\Users\Administrator\Downloads\3DGS-SLAM-Papers
 - daily-loop state
 - root and merged Graphify summaries
 - paper-node search
+- PDF-only fallback search when a machine has PDFs but no extracted markdown or Graphify outputs
 - extracted markdown text search
 - optional daily closed-loop trigger
 - MCP tools for agent clients
@@ -68,6 +69,26 @@ If `SLAM_AI_GATEWAY_TOKEN` is set, every endpoint except `/health` requires:
 
 ```text
 Authorization: Bearer <token>
+```
+
+## PDF-Only Corpus Fallback
+
+The full corpus layout includes extracted markdown and Graphify outputs. If a
+machine only has a small PDF directory, for example `/home/slam/slam_papers`,
+the gateway still works in a reduced mode:
+
+- `/status` reports `paper_index_source: "pdf_fallback"`
+- `/papers` scans `SLAM_AI_CORPUS_ROOT` recursively for `*.pdf`
+- `/paper?id=<pdf-file-or-stem>` returns the PDF fallback entry
+- `/search` remains empty until extracted markdown exists
+- `/graph/summary` remains empty until Graphify outputs exist
+
+Start a PDF-only directory on Linux:
+
+```bash
+export SLAM_AI_CORPUS_ROOT=/home/slam/slam_papers
+export SLAM_AI_GATEWAY_TOKEN='change-this-token'
+python -m slam_ai_gateway.http_server --host 0.0.0.0 --port 8766
 ```
 
 ## MCP Server
