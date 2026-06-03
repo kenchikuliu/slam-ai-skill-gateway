@@ -1,8 +1,12 @@
 param(
     [string]$RepoRoot = "C:\Users\Administrator\Downloads\slam-ai-skill-gateway",
+    [string]$LocalHealthUrl = "http://127.0.0.1:8766/health",
     [int]$IntervalSeconds = 120,
     [int]$TimeoutSeconds = 12,
+    [int]$FailureThreshold = 1,
     [int]$RestartCooldownSeconds = 300,
+    [int]$ManifestRefreshSeconds = 900,
+    [switch]$SkipManifestPush,
     [switch]$Once
 )
 
@@ -13,8 +17,12 @@ New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
 
 $StatePath = Join-Path $TmpDir "cloudflare_8766.state.json"
 $LogPath = Join-Path $TmpDir "cloudflare_8766_watchdog.log"
+$GatewayScript = Join-Path $RepoRoot "scripts\start_gateway_from_env.ps1"
 $StartScript = Join-Path $RepoRoot "scripts\start_cloudflare_quick_tunnel.ps1"
+$ManifestScript = Join-Path $RepoRoot "scripts\update_public_endpoint_manifest.ps1"
+$ConsecutiveFailures = 0
 $LastRestartAt = $null
+$LastManifestRefreshAt = $null
 
 function Write-WatchLog {
     param(
@@ -48,12 +56,18 @@ function Get-CloudflareUrl {
 }
 
 function Test-Health {
-    param([string]$BaseUrl)
-    if (-not $BaseUrl) {
-        return [ordered]@{ ok = $false; status_code = $null; error = "missing_url" }
+    param(
+        [string]$BaseUrl,
+        [string]$HealthUrl = ""
+    )
+    if (-not $HealthUrl) {
+        if (-not $BaseUrl) {
+            return [ordered]@{ ok = $false; status_code = $null; error = "missing_url" }
+        }
+        $HealthUrl = ($BaseUrl.TrimEnd("/")) + "/health"
     }
     try {
-        $Response = Invoke-WebRequest -Uri (($BaseUrl.TrimEnd("/")) + "/health") -UseBasicParsing -TimeoutSec $TimeoutSeconds
+        $Response = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec $TimeoutSeconds
         return [ordered]@{ ok = $true; status_code = [int]$Response.StatusCode; error = "" }
     } catch {
         $StatusCode = $null
@@ -64,52 +78,135 @@ function Test-Health {
     }
 }
 
+function Ensure-LocalGateway {
+    $Local = Test-Health -BaseUrl "" -HealthUrl $LocalHealthUrl
+    if ($Local.ok) {
+        return $Local
+    }
+    if (-not (Test-Path -LiteralPath $GatewayScript)) {
+        throw "Missing gateway script: $GatewayScript"
+    }
+
+    Write-WatchLog -Status "local_gateway_restart" -Message $Local.error -Extra @{
+        local_health_url = $LocalHealthUrl
+        status_code = $Local.status_code
+    } | Out-Null
+
+    Start-Process `
+        -FilePath "powershell.exe" `
+        -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $GatewayScript) `
+        -WorkingDirectory $RepoRoot `
+        -WindowStyle Hidden | Out-Null
+
+    for ($i = 0; $i -lt 45; $i++) {
+        Start-Sleep -Seconds 1
+        $Local = Test-Health -BaseUrl "" -HealthUrl $LocalHealthUrl
+        if ($Local.ok) {
+            return $Local
+        }
+    }
+    return $Local
+}
+
+function Update-EndpointManifest {
+    if (-not (Test-Path -LiteralPath $ManifestScript)) {
+        return [ordered]@{ ok = $false; exit_code = $null; error = "missing_manifest_script" }
+    }
+
+    try {
+        $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ManifestScript, "-RepoRoot", $RepoRoot)
+        if (-not $SkipManifestPush) {
+            $Args += "-CommitAndPush"
+        }
+        & powershell.exe @Args | Out-Null
+        $ExitCode = $LASTEXITCODE
+        return [ordered]@{ ok = ($ExitCode -eq 0 -or $null -eq $ExitCode); exit_code = $ExitCode; error = "" }
+    } catch {
+        return [ordered]@{ ok = $false; exit_code = $LASTEXITCODE; error = $_.Exception.Message }
+    }
+}
+
 function Restart-CloudflareTunnel {
     if (-not (Test-Path -LiteralPath $StartScript)) {
         throw "Missing Cloudflare start script: $StartScript"
     }
     Write-WatchLog -Status "cloudflare_restart" -Message "Cloudflare health check failed" | Out-Null
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $StartScript -UpdateEndpointManifest -CommitEndpointManifest | Out-Null
+    $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $StartScript, "-UpdateEndpointManifest")
+    if (-not $SkipManifestPush) {
+        $Args += "-CommitEndpointManifest"
+    }
+    & powershell.exe @Args | Out-Null
     $ExitCode = $LASTEXITCODE
     Start-Sleep -Seconds 5
     return $ExitCode
 }
 
 while ($true) {
-    $Url = Get-CloudflareUrl
-    $Health = Test-Health -BaseUrl $Url
-    if ($Health.ok) {
-        Write-WatchLog -Status "ok" -Extra @{
-            base_url = $Url
-            status_code = $Health.status_code
-        }
-    } else {
-        $ShouldRestart = $true
-        if ($LastRestartAt) {
-            $SinceRestart = ((Get-Date) - $LastRestartAt).TotalSeconds
-            if ($SinceRestart -lt $RestartCooldownSeconds) {
-                $ShouldRestart = $false
+    try {
+        $Local = Ensure-LocalGateway
+        $Url = Get-CloudflareUrl
+        $Health = Test-Health -BaseUrl $Url
+        if ($Health.ok) {
+            $ConsecutiveFailures = 0
+            $Manifest = $null
+            $ShouldRefreshManifest = (-not $LastManifestRefreshAt)
+            if ($LastManifestRefreshAt) {
+                $SinceManifestRefresh = ((Get-Date) - $LastManifestRefreshAt).TotalSeconds
+                if ($SinceManifestRefresh -ge $ManifestRefreshSeconds) {
+                    $ShouldRefreshManifest = $true
+                }
             }
-        }
+            if ($ShouldRefreshManifest) {
+                $Manifest = Update-EndpointManifest
+                $LastManifestRefreshAt = Get-Date
+            }
 
-        if ($ShouldRestart) {
-            $ExitCode = Restart-CloudflareTunnel
-            $LastRestartAt = Get-Date
-            $NewUrl = Get-CloudflareUrl
-            $After = Test-Health -BaseUrl $NewUrl
-            Write-WatchLog -Status $(if ($After.ok) { "recovered" } else { "still_failing" }) -Message $Health.error -Extra @{
-                old_base_url = $Url
-                new_base_url = $NewUrl
-                restart_exit_code = $ExitCode
-                after_status_code = $After.status_code
-                after_error = $After.error
-            }
-        } else {
-            Write-WatchLog -Status "failure_observed" -Message $Health.error -Extra @{
+            Write-WatchLog -Status "ok" -Extra @{
                 base_url = $Url
                 status_code = $Health.status_code
+                local_ok = $Local.ok
+                manifest_refresh_ok = if ($Manifest) { $Manifest.ok } else { $null }
+                manifest_refresh_exit_code = if ($Manifest) { $Manifest.exit_code } else { $null }
+            }
+        } else {
+            $ConsecutiveFailures++
+            $ShouldRestart = $ConsecutiveFailures -ge $FailureThreshold
+            if ($LastRestartAt) {
+                $SinceRestart = ((Get-Date) - $LastRestartAt).TotalSeconds
+                if ($SinceRestart -lt $RestartCooldownSeconds) {
+                    $ShouldRestart = $false
+                }
+            }
+
+            if ($ShouldRestart) {
+                $ExitCode = Restart-CloudflareTunnel
+                $LastRestartAt = Get-Date
+                $LastManifestRefreshAt = Get-Date
+                $NewUrl = Get-CloudflareUrl
+                $After = Test-Health -BaseUrl $NewUrl
+                if ($After.ok) {
+                    $ConsecutiveFailures = 0
+                }
+                Write-WatchLog -Status $(if ($After.ok) { "recovered" } else { "still_failing" }) -Message $Health.error -Extra @{
+                    old_base_url = $Url
+                    new_base_url = $NewUrl
+                    consecutive_failures = $ConsecutiveFailures
+                    restart_exit_code = $ExitCode
+                    local_ok = $Local.ok
+                    after_status_code = $After.status_code
+                    after_error = $After.error
+                }
+            } else {
+                Write-WatchLog -Status "failure_observed" -Message $Health.error -Extra @{
+                    base_url = $Url
+                    status_code = $Health.status_code
+                    consecutive_failures = $ConsecutiveFailures
+                    local_ok = $Local.ok
+                }
             }
         }
+    } catch {
+        Write-WatchLog -Status "watchdog_error" -Message $_.Exception.Message | Out-Null
     }
 
     if ($Once) {

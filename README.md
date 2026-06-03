@@ -75,6 +75,30 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
 - The endpoint manifest contains no token. It selects the lowest-priority
   healthy endpoint, currently preferring Cloudflare Quick Tunnel when the HK VPS
   reverse SSH tunnel is unhealthy.
+- Do not hard-code a `trycloudflare.com` URL on remote computers. Quick Tunnel
+  URLs are disposable; remote clients should read the GitHub manifest each time
+  they need to connect.
+
+## Resilient Public Endpoint Manifest
+
+The public manifest is the stable handoff point for remote computers:
+
+```text
+https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json
+```
+
+It contains public base URLs and health status only; it never contains the SLAM
+gateway bearer token. The intended selection rule is:
+
+```text
+use active_base_url, or the lowest-priority endpoint with health_ok=true
+```
+
+On the Windows host, `scripts\watch_cloudflare_quick_tunnel.ps1` closes the
+loop: it checks the local gateway, restarts it if needed, checks the current
+Cloudflare Quick Tunnel `/health`, restarts the tunnel when needed, and refreshes
+and pushes `public/slam-ai-endpoints.json`. HK VPS remains a lower-priority
+stable fallback because it depends on reverse SSH staying healthy.
 
 Trigger the daily loop remotely:
 
@@ -231,8 +255,10 @@ except `/health`.
 
 For login-time resilience on this Windows host, run
 `scripts\watch_cloudflare_quick_tunnel.ps1`. It restarts Cloudflare Quick Tunnel
-when the current `*.trycloudflare.com` URL stops answering `/health`, then
-updates and pushes `public/slam-ai-endpoints.json`.
+when the current `*.trycloudflare.com` URL stops answering `/health`, starts the
+local gateway first if `127.0.0.1:8766` is down, then updates and pushes
+`public/slam-ai-endpoints.json`. While healthy, it also periodically refreshes
+the manifest so GitHub reflects the current usable endpoint.
 
 ## Fixed Public Entry With Bandwagon VPS
 
@@ -298,7 +324,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwago
 
 Optionally run a conservative watchdog on the Windows host. It checks the
 public `/slam-ai/health` endpoint and restarts the reverse SSH tunnel after
-failures, with a five-minute restart cooldown:
+multiple consecutive failures, with a long restart cooldown to avoid aggressive
+reconnect loops when the VPS SSH daemon is under pressure:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_bandwagon_reverse_tunnel.ps1
@@ -383,11 +410,19 @@ Then run:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_gateway_from_env.ps1
 ```
 
-For login-time startup, create a `.cmd` in the Windows Startup folder that calls
-the same script. Keep the token in the local config file, not in Git.
+Install or refresh the Windows login startup entries:
 
-To also restart a public tunnel at login, create another Startup `.cmd` that
-calls either `scripts\start_cloudflare_quick_tunnel.ps1` or
-`scripts\start_bandwagon_reverse_tunnel.ps1`,
-`scripts\start_tunnelto_tunnel.ps1`. The tunnelto key should stay in the local
-`set-auth` store.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1
+```
+
+This creates startup commands for the HTTP gateway and the Cloudflare watchdog.
+It disables the older direct Cloudflare startup command by default so the
+watchdog is the single owner of Quick Tunnel lifecycle and manifest publication.
+Keep the gateway token in the local config file, not in Git.
+
+To also create the Bandwagon watchdog startup entry:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -IncludeBandwagonWatchdog
+```

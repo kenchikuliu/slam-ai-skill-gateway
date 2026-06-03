@@ -20,6 +20,9 @@ Current implementation detail:
   `active_base_url` instead of hard-coding the HK VPS URL.
 - All remote computers use the same SLAM gateway bearer token.
 - The gateway does not yet issue per-computer or per-user tokens.
+- The Windows host maintains the published endpoint manifest through the
+  Cloudflare watchdog; remote computers should treat the manifest URL as the
+  stable entry, not the current `trycloudflare.com` URL.
 - A Bandwagon VPS or other VPS gives a stable IP/domain as long as the reverse SSH tunnel is running from this Windows host.
 - The Cloudflare Quick Tunnel URL can change after cloudflared restarts.
 - The tunnelto base URL can change after tunnelto restarts unless a fixed subdomain is configured.
@@ -74,6 +77,12 @@ https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/
 Remote callers should select `active_base_url`, or the first endpoint with
 `health_ok=true` and the lowest `priority`. This prevents a remote machine from
 getting stuck on the HK VPS path proxy when its reverse SSH upstream is broken.
+
+Host-side maintenance is handled by `scripts\watch_cloudflare_quick_tunnel.ps1`.
+It checks the local gateway, restarts it if needed, checks Cloudflare `/health`,
+restarts Cloudflare Quick Tunnel when needed, and refreshes plus pushes this
+manifest. HK VPS remains a lower-priority fallback because it depends on reverse
+SSH staying up.
 
 Linux example:
 
@@ -147,13 +156,13 @@ $state.urls | Where-Object { $_ -like "https://*.tunn.dev*" } | Select-Object -F
 
 ## Outside The LAN
 
-For a computer that is not on the same LAN, use the fixed VPS/domain URL,
-Cloudflare Quick Tunnel URL, or tunnelto public URL as the base URL:
+For a computer that is not on the same LAN, prefer the published endpoint
+manifest. Use a fixed VPS/domain URL, current Cloudflare Quick Tunnel URL, or
+tunnelto public URL only when deliberately bypassing the manifest:
 
 ```powershell
-$base = "https://your-domain.example"
-# $base = "http://VPS_IP/slam-ai"
-# $base = "https://current-trycloudflare-or-tunnelto-url"
+$manifest = Invoke-RestMethod "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+$base = $manifest.active_base_url
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -174,8 +183,9 @@ Expected result without bearer token: HTTP `401 Unauthorized`.
 
 Cloudflare Quick Tunnel note: account-less `trycloudflare.com` tunnels are
 useful for remote testing but do not provide a fixed URL or uptime guarantee.
-Use a named Cloudflare Tunnel with a Cloudflare account/domain for long-lived
-production access.
+The manifest/watchdog layer makes the changing URL usable for remote agents.
+Use a named Cloudflare Tunnel with a Cloudflare account/domain when a fixed
+production URL is required.
 
 ## Fixed Public Entry With Bandwagon VPS
 
@@ -253,7 +263,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwago
 
 Optionally run the watchdog on the Windows host. It checks the public
 `/slam-ai/health` endpoint and restarts the reverse SSH tunnel only after
-failures, with a five-minute cooldown to avoid aggressive reconnect loops:
+multiple consecutive failures, with a long cooldown to avoid aggressive
+reconnect loops when the VPS SSH service is under pressure:
 
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
@@ -344,6 +355,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\register_firew
 ```
 
 ## Starting The Services
+
+Install or refresh the Windows login startup entries:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1
+```
+
+This creates startup entries for the HTTP gateway and the Cloudflare watchdog.
+It disables the older direct Cloudflare startup entry by default, so the
+watchdog is the single owner of Quick Tunnel lifecycle and manifest publication.
 
 Start or restart the HTTP gateway:
 
