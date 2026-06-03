@@ -135,6 +135,10 @@ This can expose the local gateway to computers outside the current LAN. The
 public tunnel still forwards to the token-protected SLAM API, so keep both the
 tunnelto access key and the gateway bearer token out of Git.
 
+For complete other-computer usage, including where to read the current public
+base URL and gateway bearer token on the host machine, see
+[`docs/remote-access.md`](docs/remote-access.md).
+
 Install the current tunnelto client:
 
 ```powershell
