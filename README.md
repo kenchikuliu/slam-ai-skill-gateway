@@ -55,8 +55,10 @@ Use these endpoints when another computer should treat this host as the data
 backend for its `slam-ai` skill workflow:
 
 ```powershell
-# Use the current Cloudflare/tunnelto URL, or the host LAN URL.
-$base = "https://current-trycloudflare-or-tunnelto-url"
+# Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
+$base = "https://your-domain.example"
+# $base = "http://VPS_IP"
+# $base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
 
@@ -218,6 +220,72 @@ $state.urls | Select-Object -First 1
 Remote callers still need the SLAM gateway bearer token for every endpoint
 except `/health`.
 
+## Fixed Public Entry With Bandwagon VPS
+
+Use a VPS when you need a stable public address. The VPS does not store the
+paper corpus. It only receives public HTTP/HTTPS traffic and proxies it to a
+reverse SSH tunnel back to this Windows host:
+
+```text
+remote caller -> VPS nginx -> 127.0.0.1:18766 on VPS -> SSH reverse tunnel -> Windows localhost:8766
+```
+
+Create a local config outside Git:
+
+```json
+{
+  "ssh_host": "VPS_IP_OR_DOMAIN",
+  "ssh_user": "root",
+  "ssh_port": 22,
+  "identity_file": "C:\\Users\\Administrator\\.ssh\\id_ed25519",
+  "local_port": 8766,
+  "remote_port": 18766,
+  "domain": "",
+  "email": ""
+}
+```
+
+Save it as:
+
+```text
+tmp\bandwagon_reverse_ssh.env.json
+```
+
+Configure nginx on the VPS:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
+```
+
+If a domain already points to the VPS and you want HTTPS:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1 -Domain slam.example.com -Email you@example.com -LetsEncrypt
+```
+
+Start the Windows reverse SSH tunnel:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
+```
+
+For login-time startup on this Windows host, create a Startup `.cmd` that calls
+the same script. It can use `-SkipIfMissingConfig` so login startup stays quiet
+until `tmp\bandwagon_reverse_ssh.env.json` exists.
+
+Then remote callers can use:
+
+```powershell
+$base = "http://VPS_IP"
+# or, after domain/HTTPS setup:
+# $base = "https://slam.example.com"
+$token = "paste-the-slam-gateway-bearer-token"
+
+Invoke-RestMethod "$base/health"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
+```
+
 ## Public Tunnel With tunnelto
 
 This can expose the local gateway to computers outside the current LAN. The
@@ -285,5 +353,6 @@ the same script. Keep the token in the local config file, not in Git.
 
 To also restart a public tunnel at login, create another Startup `.cmd` that
 calls either `scripts\start_cloudflare_quick_tunnel.ps1` or
+`scripts\start_bandwagon_reverse_tunnel.ps1`,
 `scripts\start_tunnelto_tunnel.ps1`. The tunnelto key should stay in the local
 `set-auth` store.

@@ -10,7 +10,7 @@ Do not commit real access keys, bearer tokens, or files under `tmp/`.
 Remote callers need two values:
 
 ```text
-base URL = LAN URL, current Cloudflare Quick Tunnel URL, or current tunnelto public URL
+base URL = fixed VPS/domain URL, LAN URL, current Cloudflare Quick Tunnel URL, or current tunnelto public URL
 token    = SLAM gateway bearer token
 ```
 
@@ -19,6 +19,7 @@ Current implementation detail:
 - All remote computers use the same base URL while the same gateway/tunnel is running.
 - All remote computers use the same SLAM gateway bearer token.
 - The gateway does not yet issue per-computer or per-user tokens.
+- A Bandwagon VPS or other VPS gives a stable IP/domain as long as the reverse SSH tunnel is running from this Windows host.
 - The Cloudflare Quick Tunnel URL can change after cloudflared restarts.
 - The tunnelto base URL can change after tunnelto restarts unless a fixed subdomain is configured.
 - The SLAM gateway bearer token stays the same until the host config is changed.
@@ -46,8 +47,10 @@ The remote computer does not need to copy the PDF corpus, extracted markdown, or
 Graphify outputs. It should call:
 
 ```powershell
-# Use the current Cloudflare/tunnelto URL, or the host LAN URL.
-$base = "https://current-trycloudflare-or-tunnelto-url"
+# Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
+$base = "https://your-domain.example"
+# $base = "http://VPS_IP"
+# $base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
 
@@ -88,6 +91,24 @@ $state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skil
 $state.urls | Where-Object { $_ -like "https://*.trycloudflare.com*" } | Select-Object -First 1
 ```
 
+The Bandwagon/VPS reverse SSH config is stored locally outside Git at:
+
+```text
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\bandwagon_reverse_ssh.env.json
+```
+
+Use this template:
+
+```text
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\examples\bandwagon_reverse_ssh.env.example.json
+```
+
+The reverse SSH tunnel state is written to:
+
+```text
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\bandwagon_reverse_ssh_18766.state.json
+```
+
 The current tunnelto URL is stored in:
 
 ```text
@@ -103,11 +124,13 @@ $state.urls | Where-Object { $_ -like "https://*.tunn.dev*" } | Select-Object -F
 
 ## Outside The LAN
 
-For a computer that is not on the same LAN, use the Cloudflare Quick Tunnel URL
-or tunnelto public URL as the base URL:
+For a computer that is not on the same LAN, use the fixed VPS/domain URL,
+Cloudflare Quick Tunnel URL, or tunnelto public URL as the base URL:
 
 ```powershell
-$base = "https://current-trycloudflare-or-tunnelto-url"
+$base = "https://your-domain.example"
+# $base = "http://VPS_IP"
+# $base = "https://current-trycloudflare-or-tunnelto-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -130,6 +153,92 @@ Cloudflare Quick Tunnel note: account-less `trycloudflare.com` tunnels are
 useful for remote testing but do not provide a fixed URL or uptime guarantee.
 Use a named Cloudflare Tunnel with a Cloudflare account/domain for long-lived
 production access.
+
+## Fixed Public Entry With Bandwagon VPS
+
+Use this path when the user wants a stable public address and already has a
+Bandwagon VPS or equivalent Linux VPS.
+
+Architecture:
+
+```text
+remote caller -> VPS nginx -> 127.0.0.1:18766 on VPS -> SSH reverse tunnel -> Windows localhost:8766
+```
+
+The VPS does not store PDFs, extracted markdown, Graphify outputs, or the SLAM
+bearer token. It only proxies traffic to the reverse SSH tunnel. The gateway on
+this Windows host still enforces `Authorization: Bearer <token>` for every
+endpoint except `/health`.
+
+Create local config outside Git:
+
+```powershell
+Copy-Item `
+  -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\examples\bandwagon_reverse_ssh.env.example.json" `
+  -Destination "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\bandwagon_reverse_ssh.env.json"
+```
+
+Edit:
+
+```json
+{
+  "ssh_host": "VPS_IP_OR_DOMAIN",
+  "ssh_user": "root",
+  "ssh_port": 22,
+  "identity_file": "C:\\Users\\Administrator\\.ssh\\id_ed25519",
+  "local_port": 8766,
+  "remote_port": 18766,
+  "domain": "",
+  "email": ""
+}
+```
+
+Configure nginx on the VPS:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
+```
+
+If a domain already points to the VPS and HTTPS is wanted:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1 -Domain slam.example.com -Email you@example.com -LetsEncrypt
+```
+
+Start or restart the reverse SSH tunnel from Windows:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
+```
+
+Windows login startup entry on this host:
+
+```text
+C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-bandwagon-reverse-ssh.cmd
+```
+
+It calls the reverse-tunnel script with `-SkipIfMissingConfig`, so it stays
+quiet until `tmp\bandwagon_reverse_ssh.env.json` is filled with VPS SSH details.
+
+Remote caller examples:
+
+```powershell
+$base = "http://VPS_IP"
+# or:
+# $base = "https://slam.example.com"
+$token = "paste-the-slam-gateway-bearer-token"
+
+Invoke-RestMethod "$base/health"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
+```
+
+If the reverse tunnel is down, the VPS public URL may still answer from nginx
+but return a gateway/proxy error. Restart `scripts\start_bandwagon_reverse_tunnel.ps1`
+on the Windows host.
 
 ## Same LAN
 
@@ -181,6 +290,14 @@ Start or restart Cloudflare Quick Tunnel:
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_quick_tunnel.ps1
+```
+
+Configure Bandwagon/VPS nginx and start the reverse SSH tunnel:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
 ```
 
 Install the current tunnelto client:
@@ -266,7 +383,7 @@ python -m slam_ai_gateway.http_server --host 0.0.0.0 --port 8766
 Trigger the daily closed loop remotely:
 
 ```powershell
-$base = "https://current-trycloudflare-or-tunnelto-or-lan-url"
+$base = "https://your-domain-or-current-public-or-lan-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod `
@@ -288,5 +405,6 @@ python -m slam_ai_gateway.mcp_server
 That works for an MCP client running on the same machine, or on another machine
 that has its own repo checkout and corpus access.
 
-For other computers today, use the HTTP API through LAN, Cloudflare Quick
-Tunnel, or tunnelto. Remote MCP over HTTP/SSE is not implemented yet.
+For other computers today, use the HTTP API through the fixed VPS/domain URL,
+LAN, Cloudflare Quick Tunnel, or tunnelto. Remote MCP over HTTP/SSE is not
+implemented yet.
