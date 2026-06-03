@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "slam-ai": {
+      "command": "python",
+      "args": ["-m", "slam_ai_gateway.mcp_server"],
+      "env": {
+        "SLAM_AI_CORPUS_ROOT": "C:\\Users\\Administrator\\Downloads\\3DGS-SLAM-Papers"
+      }
+    }
+  }
+}
+
