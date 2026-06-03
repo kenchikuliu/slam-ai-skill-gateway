@@ -129,6 +129,42 @@ For LAN access, allow the port on the host machine if needed:
 
 Use a token when binding to `0.0.0.0`.
 
+## Public Tunnel With tunnelto
+
+This can expose the local gateway to computers outside the current LAN. The
+public tunnel still forwards to the token-protected SLAM API, so keep both the
+tunnelto access key and the gateway bearer token out of Git.
+
+Download the Windows binary if it is not already present:
+
+```powershell
+New-Item -ItemType Directory -Force -Path .\tools | Out-Null
+Invoke-WebRequest `
+  -Uri "https://github.com/agrinman/tunnelto/releases/download/0.1.18/tunnelto-windows.exe" `
+  -OutFile .\tools\tunnelto-windows.exe
+```
+
+Create a local tunnel config under `tmp\tunnelto_8766.env.json`:
+
+```json
+{
+  "port": 8766,
+  "local_host": "localhost",
+  "tunnelto_key": "your-tunnelto-access-key",
+  "subdomain": ""
+}
+```
+
+Then start the tunnel:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_tunnelto_tunnel.ps1
+```
+
+The script writes tunnel state and logs to `tmp\tunnelto_8766.*`. If no
+`tunnelto_key` is supplied, the public service rejects the connection and asks
+for an access key from `https://dashboard.tunnelto.dev`.
+
 ## Startup On Windows
 
 Create a local config file outside Git, for example:
