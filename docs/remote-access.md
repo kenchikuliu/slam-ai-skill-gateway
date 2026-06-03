@@ -49,7 +49,7 @@ Graphify outputs. It should call:
 ```powershell
 # Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
 $base = "https://your-domain.example"
-# $base = "http://VPS_IP"
+# $base = "http://VPS_IP/slam-ai"
 # $base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
@@ -129,7 +129,7 @@ Cloudflare Quick Tunnel URL, or tunnelto public URL as the base URL:
 
 ```powershell
 $base = "https://your-domain.example"
-# $base = "http://VPS_IP"
+# $base = "http://VPS_IP/slam-ai"
 # $base = "https://current-trycloudflare-or-tunnelto-url"
 $token = "paste-the-slam-gateway-bearer-token"
 
@@ -200,6 +200,20 @@ cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
 ```
 
+If the VPS already has a production site on port `80`/`443`, configure a path
+proxy on the existing Nginx server instead of replacing the root site:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_path_proxy.ps1 -PathPrefix /slam-ai
+```
+
+This forwards:
+
+```text
+http://VPS_IP/slam-ai/... -> VPS 127.0.0.1:18766 -> Windows localhost:8766
+```
+
 If a domain already points to the VPS and HTTPS is wanted:
 
 ```powershell
@@ -226,9 +240,9 @@ quiet until `tmp\bandwagon_reverse_ssh.env.json` is filled with VPS SSH details.
 Remote caller examples:
 
 ```powershell
-$base = "http://VPS_IP"
+$base = "http://VPS_IP/slam-ai"
 # or:
-# $base = "https://slam.example.com"
+# $base = "https://slam.example.com/slam-ai"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -239,6 +253,26 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
 If the reverse tunnel is down, the VPS public URL may still answer from nginx
 but return a gateway/proxy error. Restart `scripts\start_bandwagon_reverse_tunnel.ps1`
 on the Windows host.
+
+Current HK VPS deployment:
+
+```text
+base URL = http://83.229.126.28/slam-ai
+VPS      = 83.229.126.28
+Nginx    = existing BT/aaPanel Nginx default site path proxy
+Tunnel   = VPS 127.0.0.1:18766 -> Windows 127.0.0.1:8766
+```
+
+Remote caller example for the current HK VPS:
+
+```powershell
+$base = "http://83.229.126.28/slam-ai"
+$token = "paste-the-slam-gateway-bearer-token"
+
+Invoke-RestMethod "$base/health"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
+Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
+```
 
 ## Same LAN
 
@@ -297,6 +331,15 @@ Configure Bandwagon/VPS nginx and start the reverse SSH tunnel:
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
+```
+
+If the VPS already has websites on port `80`/`443`, use the path-proxy helper
+instead of replacing the root site:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_path_proxy.ps1 -PathPrefix /slam-ai
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
 ```
 

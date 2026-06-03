@@ -57,7 +57,7 @@ backend for its `slam-ai` skill workflow:
 ```powershell
 # Use a fixed VPS/domain URL, current Cloudflare/tunnelto URL, or host LAN URL.
 $base = "https://your-domain.example"
-# $base = "http://VPS_IP"
+# $base = "http://VPS_IP/slam-ai"
 # $base = "https://current-trycloudflare-or-tunnelto-url"
 # $base = "http://HOST_IP:8766"
 $token = "paste-the-slam-gateway-bearer-token"
@@ -257,6 +257,19 @@ Configure nginx on the VPS:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_vps.ps1
 ```
 
+If the VPS already has websites on port `80`/`443`, prefer a path proxy on an
+existing Nginx server instead of replacing the root site:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_bandwagon_path_proxy.ps1 -PathPrefix /slam-ai
+```
+
+This forwards:
+
+```text
+http://VPS_IP/slam-ai/... -> VPS 127.0.0.1:18766 -> Windows localhost:8766
+```
+
 If a domain already points to the VPS and you want HTTPS:
 
 ```powershell
@@ -276,9 +289,9 @@ until `tmp\bandwagon_reverse_ssh.env.json` exists.
 Then remote callers can use:
 
 ```powershell
-$base = "http://VPS_IP"
+$base = "http://VPS_IP/slam-ai"
 # or, after domain/HTTPS setup:
-# $base = "https://slam.example.com"
+# $base = "https://slam.example.com/slam-ai"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
