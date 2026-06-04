@@ -5,6 +5,7 @@ param(
     [int]$TimeoutSeconds = 12,
     [int]$FailureThreshold = 1,
     [int]$RestartCooldownSeconds = 300,
+    [int]$PostRestartReadySeconds = 90,
     [int]$ManifestRefreshSeconds = 900,
     [switch]$SkipManifestPush,
     [switch]$Once
@@ -131,14 +132,37 @@ function Restart-CloudflareTunnel {
         throw "Missing Cloudflare start script: $StartScript"
     }
     Write-WatchLog -Status "cloudflare_restart" -Message "Cloudflare health check failed" | Out-Null
-    $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $StartScript, "-UpdateEndpointManifest")
-    if (-not $SkipManifestPush) {
-        $Args += "-CommitEndpointManifest"
-    }
+    $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $StartScript)
     & powershell.exe @Args | Out-Null
     $ExitCode = $LASTEXITCODE
     Start-Sleep -Seconds 5
     return $ExitCode
+}
+
+function Wait-CloudflareHealthy {
+    $Deadline = (Get-Date).AddSeconds([Math]::Max(1, $PostRestartReadySeconds))
+    $LastUrl = ""
+    $LastHealth = [ordered]@{ ok = $false; status_code = $null; error = "not_checked" }
+    while ((Get-Date) -lt $Deadline) {
+        $LastUrl = Get-CloudflareUrl
+        $LastHealth = Test-Health -BaseUrl $LastUrl
+        if ($LastHealth.ok) {
+            return [ordered]@{
+                ok = $true
+                base_url = $LastUrl
+                status_code = $LastHealth.status_code
+                error = ""
+            }
+        }
+        Start-Sleep -Seconds 3
+    }
+
+    return [ordered]@{
+        ok = $false
+        base_url = $LastUrl
+        status_code = $LastHealth.status_code
+        error = $LastHealth.error
+    }
 }
 
 while ($true) {
@@ -181,20 +205,23 @@ while ($true) {
             if ($ShouldRestart) {
                 $ExitCode = Restart-CloudflareTunnel
                 $LastRestartAt = Get-Date
-                $LastManifestRefreshAt = Get-Date
-                $NewUrl = Get-CloudflareUrl
-                $After = Test-Health -BaseUrl $NewUrl
-                if ($After.ok) {
+                $Ready = Wait-CloudflareHealthy
+                $Manifest = $null
+                if ($Ready.ok) {
+                    $Manifest = Update-EndpointManifest
+                    $LastManifestRefreshAt = Get-Date
                     $ConsecutiveFailures = 0
                 }
-                Write-WatchLog -Status $(if ($After.ok) { "recovered" } else { "still_failing" }) -Message $Health.error -Extra @{
+                Write-WatchLog -Status $(if ($Ready.ok) { "recovered" } else { "still_failing" }) -Message $Health.error -Extra @{
                     old_base_url = $Url
-                    new_base_url = $NewUrl
+                    new_base_url = $Ready.base_url
                     consecutive_failures = $ConsecutiveFailures
                     restart_exit_code = $ExitCode
                     local_ok = $Local.ok
-                    after_status_code = $After.status_code
-                    after_error = $After.error
+                    after_status_code = $Ready.status_code
+                    after_error = $Ready.error
+                    manifest_refresh_ok = if ($Manifest) { $Manifest.ok } else { $null }
+                    manifest_refresh_exit_code = if ($Manifest) { $Manifest.exit_code } else { $null }
                 }
             } else {
                 Write-WatchLog -Status "failure_observed" -Message $Health.error -Extra @{
