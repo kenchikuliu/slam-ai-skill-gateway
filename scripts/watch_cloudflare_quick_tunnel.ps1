@@ -7,6 +7,8 @@ param(
     [int]$RestartCooldownSeconds = 300,
     [int]$PostRestartReadySeconds = 90,
     [int]$ManifestRefreshSeconds = 900,
+    [int]$ManifestUpdateTimeoutSeconds = 120,
+    [int]$TunnelRestartTimeoutSeconds = 120,
     [switch]$SkipManifestPush,
     [switch]$Once
 )
@@ -21,6 +23,7 @@ $LogPath = Join-Path $TmpDir "cloudflare_8766_watchdog.log"
 $GatewayScript = Join-Path $RepoRoot "scripts\start_gateway_from_env.ps1"
 $StartScript = Join-Path $RepoRoot "scripts\start_cloudflare_quick_tunnel.ps1"
 $ManifestScript = Join-Path $RepoRoot "scripts\update_public_endpoint_manifest.ps1"
+$ManifestPath = Join-Path $RepoRoot "public\slam-ai-endpoints.json"
 $ConsecutiveFailures = 0
 $LastRestartAt = $null
 $LastManifestRefreshAt = $null
@@ -79,6 +82,90 @@ function Test-Health {
     }
 }
 
+function Invoke-PowerShellScriptWithTimeout {
+    param(
+        [string]$ScriptPath,
+        [string[]]$Arguments = @(),
+        [int]$TimeoutSeconds = 120,
+        [string]$Name = "script"
+    )
+
+    if (-not (Test-Path -LiteralPath $ScriptPath)) {
+        return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = "missing_script"; pid = $null; stdout = ""; stderr = "" }
+    }
+
+    function Quote-ProcessArgument {
+        param([string]$Value)
+        if ($null -eq $Value) {
+            return '""'
+        }
+        if ($Value -notmatch '[\s"]') {
+            return $Value
+        }
+        return '"' + ($Value -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+    }
+
+    $Stamp = (Get-Date).ToString("yyyyMMdd_HHmmss_fff")
+    $StdoutPath = Join-Path $TmpDir "$Name.$Stamp.out.log"
+    $StderrPath = Join-Path $TmpDir "$Name.$Stamp.err.log"
+    $PowerShellArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath)
+    foreach ($Argument in @($Arguments)) {
+        $PowerShellArgs += $Argument
+    }
+
+    try {
+        $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $StartInfo.FileName = "powershell.exe"
+        $StartInfo.Arguments = (($PowerShellArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
+        $StartInfo.WorkingDirectory = $RepoRoot
+        $StartInfo.UseShellExecute = $false
+        $StartInfo.CreateNoWindow = $true
+        $StartInfo.RedirectStandardOutput = $true
+        $StartInfo.RedirectStandardError = $true
+
+        $Process = [System.Diagnostics.Process]::new()
+        $Process.StartInfo = $StartInfo
+        [void]$Process.Start()
+
+        $Exited = $Process.WaitForExit([Math]::Max(1, $TimeoutSeconds) * 1000)
+        if (-not $Exited) {
+            try {
+                $Process.Kill()
+            } catch {
+                Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+            }
+            $StdoutText = $Process.StandardOutput.ReadToEnd()
+            $StderrText = $Process.StandardError.ReadToEnd()
+            [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
+            return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $true; error = "timeout"; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
+        }
+
+        $StdoutText = $Process.StandardOutput.ReadToEnd()
+        $StderrText = $Process.StandardError.ReadToEnd()
+        [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
+        return [pscustomobject][ordered]@{ ok = ($Process.ExitCode -eq 0); exit_code = $Process.ExitCode; timed_out = $false; error = ""; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
+    } catch {
+        return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = $_.Exception.Message; pid = $null; stdout = $StdoutPath; stderr = $StderrPath }
+    }
+}
+
+function Get-CurrentManifestBaseUrl {
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        return ""
+    }
+    try {
+        $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+        if ($Manifest.active_base_url) {
+            return [string]$Manifest.active_base_url
+        }
+    } catch {
+        return ""
+    }
+    return ""
+}
+
 function Ensure-LocalGateway {
     $Local = Test-Health -BaseUrl "" -HealthUrl $LocalHealthUrl
     if ($Local.ok) {
@@ -111,20 +198,14 @@ function Ensure-LocalGateway {
 
 function Update-EndpointManifest {
     if (-not (Test-Path -LiteralPath $ManifestScript)) {
-        return [ordered]@{ ok = $false; exit_code = $null; error = "missing_manifest_script" }
+        return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = "missing_manifest_script"; stdout = ""; stderr = "" }
     }
 
-    try {
-        $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ManifestScript, "-RepoRoot", $RepoRoot)
-        if (-not $SkipManifestPush) {
-            $Args += "-CommitAndPush"
-        }
-        & powershell.exe @Args | Out-Null
-        $ExitCode = $LASTEXITCODE
-        return [ordered]@{ ok = ($ExitCode -eq 0 -or $null -eq $ExitCode); exit_code = $ExitCode; error = "" }
-    } catch {
-        return [ordered]@{ ok = $false; exit_code = $LASTEXITCODE; error = $_.Exception.Message }
+    $Args = @("-RepoRoot", $RepoRoot)
+    if (-not $SkipManifestPush) {
+        $Args += "-CommitAndPush"
     }
+    return Invoke-PowerShellScriptWithTimeout -ScriptPath $ManifestScript -Arguments $Args -TimeoutSeconds $ManifestUpdateTimeoutSeconds -Name "endpoint_manifest_update"
 }
 
 function Restart-CloudflareTunnel {
@@ -132,11 +213,9 @@ function Restart-CloudflareTunnel {
         throw "Missing Cloudflare start script: $StartScript"
     }
     Write-WatchLog -Status "cloudflare_restart" -Message "Cloudflare health check failed" | Out-Null
-    $Args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $StartScript)
-    & powershell.exe @Args | Out-Null
-    $ExitCode = $LASTEXITCODE
+    $Result = Invoke-PowerShellScriptWithTimeout -ScriptPath $StartScript -TimeoutSeconds $TunnelRestartTimeoutSeconds -Name "cloudflare_restart"
     Start-Sleep -Seconds 5
-    return $ExitCode
+    return $Result
 }
 
 function Wait-CloudflareHealthy {
@@ -173,6 +252,8 @@ while ($true) {
         if ($Health.ok) {
             $ConsecutiveFailures = 0
             $Manifest = $null
+            $ManifestBaseUrl = Get-CurrentManifestBaseUrl
+            $ManifestStale = [bool]($Url -and ($ManifestBaseUrl -ne $Url))
             $ShouldRefreshManifest = (-not $LastManifestRefreshAt)
             if ($LastManifestRefreshAt) {
                 $SinceManifestRefresh = ((Get-Date) - $LastManifestRefreshAt).TotalSeconds
@@ -180,17 +261,25 @@ while ($true) {
                     $ShouldRefreshManifest = $true
                 }
             }
+            if ($ManifestStale) {
+                $ShouldRefreshManifest = $true
+            }
             if ($ShouldRefreshManifest) {
                 $Manifest = Update-EndpointManifest
-                $LastManifestRefreshAt = Get-Date
+                if ($Manifest.ok) {
+                    $LastManifestRefreshAt = Get-Date
+                }
             }
 
             Write-WatchLog -Status "ok" -Extra @{
                 base_url = $Url
                 status_code = $Health.status_code
                 local_ok = $Local.ok
+                manifest_active_base_url = $ManifestBaseUrl
+                manifest_stale = $ManifestStale
                 manifest_refresh_ok = if ($Manifest) { $Manifest.ok } else { $null }
                 manifest_refresh_exit_code = if ($Manifest) { $Manifest.exit_code } else { $null }
+                manifest_refresh_timed_out = if ($Manifest) { $Manifest.timed_out } else { $null }
             }
         } else {
             $ConsecutiveFailures++
@@ -203,25 +292,30 @@ while ($true) {
             }
 
             if ($ShouldRestart) {
-                $ExitCode = Restart-CloudflareTunnel
+                $Restart = Restart-CloudflareTunnel
                 $LastRestartAt = Get-Date
                 $Ready = Wait-CloudflareHealthy
                 $Manifest = $null
                 if ($Ready.ok) {
                     $Manifest = Update-EndpointManifest
-                    $LastManifestRefreshAt = Get-Date
+                    if ($Manifest.ok) {
+                        $LastManifestRefreshAt = Get-Date
+                    }
                     $ConsecutiveFailures = 0
                 }
                 Write-WatchLog -Status $(if ($Ready.ok) { "recovered" } else { "still_failing" }) -Message $Health.error -Extra @{
                     old_base_url = $Url
                     new_base_url = $Ready.base_url
                     consecutive_failures = $ConsecutiveFailures
-                    restart_exit_code = $ExitCode
+                    restart_exit_code = $Restart.exit_code
+                    restart_timed_out = $Restart.timed_out
+                    restart_error = $Restart.error
                     local_ok = $Local.ok
                     after_status_code = $Ready.status_code
                     after_error = $Ready.error
                     manifest_refresh_ok = if ($Manifest) { $Manifest.ok } else { $null }
                     manifest_refresh_exit_code = if ($Manifest) { $Manifest.exit_code } else { $null }
+                    manifest_refresh_timed_out = if ($Manifest) { $Manifest.timed_out } else { $null }
                 }
             } else {
                 Write-WatchLog -Status "failure_observed" -Message $Health.error -Extra @{

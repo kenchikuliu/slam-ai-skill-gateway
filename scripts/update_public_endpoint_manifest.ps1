@@ -168,9 +168,22 @@ if ($CommitAndPush) {
     }
     $RelativeOutput = $ResolvedOutput.Substring($ResolvedRepo.Length).TrimStart("\", "/")
     & git -C $RepoRoot add $RelativeOutput
+    if ($LASTEXITCODE -ne 0) {
+        throw "git add failed for $RelativeOutput"
+    }
     $Status = & git -C $RepoRoot status --short -- $RelativeOutput
+    if ($LASTEXITCODE -ne 0) {
+        throw "git status failed for $RelativeOutput"
+    }
     if ($Status) {
         & git -C $RepoRoot commit -m "Update public SLAM AI endpoint manifest"
-        & git -C $RepoRoot push origin main
+        if ($LASTEXITCODE -ne 0) {
+            throw "git commit failed for $RelativeOutput"
+        }
+    }
+
+    & git -C $RepoRoot push origin main
+    if ($LASTEXITCODE -ne 0) {
+        throw "git push failed for endpoint manifest"
     }
 }
