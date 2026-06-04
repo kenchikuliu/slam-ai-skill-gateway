@@ -134,9 +134,9 @@ Add-Endpoint `
     -Kind "bandwagon_vps_path_proxy" `
     -BaseUrl $HkBaseUrl `
     -Stable $true `
-    -HealthyPriority 20 `
+    -HealthyPriority 8 `
     -UnhealthyPriority 90 `
-    -Note "Stable address, but depends on the Windows-to-VPS reverse SSH tunnel."
+    -Note "Preferred fixed public API when healthy. Depends on the Windows-to-VPS reverse SSH tunnel."
 
 $SortedEndpoints = @($Endpoints | Sort-Object @{Expression = { $_.priority }; Ascending = $true}, @{Expression = { $_.name }; Ascending = $true})
 $Active = $SortedEndpoints | Where-Object { $_.health_ok } | Select-Object -First 1
