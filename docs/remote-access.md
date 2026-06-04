@@ -21,8 +21,10 @@ Current implementation detail:
 - All remote computers use the same SLAM gateway bearer token.
 - The gateway does not yet issue per-computer or per-user tokens.
 - The Windows host maintains the published endpoint manifest through the
-  Cloudflare watchdog; remote computers should treat the manifest URL as the
-  stable entry, not the current `trycloudflare.com` URL.
+  Cloudflare watchdog scripts; remote computers should treat the manifest URL
+  as the stable entry, not the current `trycloudflare.com` URL.
+- A Cloudflare Named Tunnel gives a fixed hostname when this host has completed
+  `cloudflared tunnel login` and the hostname is routed in a Cloudflare zone.
 - A Bandwagon VPS or other VPS gives a stable IP/domain as long as the reverse SSH tunnel is running from this Windows host.
 - The Cloudflare Quick Tunnel URL can change after cloudflared restarts.
 - The tunnelto base URL can change after tunnelto restarts unless a fixed subdomain is configured.
@@ -32,7 +34,8 @@ Current implementation detail:
 
 There are two different credentials:
 
-- `Cloudflare account/token`: not needed for Quick Tunnel; needed only for a stable named tunnel.
+- `Cloudflare account/cert`: not needed for Quick Tunnel; needed only on the
+  host for a stable named tunnel.
 - `tunnelto access key`: used only on the host machine to open the public tunnel.
 - `SLAM gateway bearer token`: used by other computers in the HTTP `Authorization` header.
 
@@ -78,11 +81,16 @@ Remote callers should select `active_base_url`, or the first endpoint with
 `health_ok=true` and the lowest `priority`. This prevents a remote machine from
 getting stuck on the HK VPS path proxy when its reverse SSH upstream is broken.
 
-Host-side maintenance is handled by `scripts\watch_cloudflare_quick_tunnel.ps1`.
-It checks the local gateway, restarts it if needed, checks Cloudflare `/health`,
-restarts Cloudflare Quick Tunnel when needed, and refreshes plus pushes this
-manifest. HK VPS remains a lower-priority fallback because it depends on reverse
-SSH staying up.
+Host-side maintenance can use two Cloudflare watchdogs:
+
+- `scripts\watch_cloudflare_named_tunnel.ps1`: keeps a configured fixed
+  Cloudflare hostname alive and refreshes the manifest.
+- `scripts\watch_cloudflare_quick_tunnel.ps1`: keeps the account-less
+  `trycloudflare.com` fallback alive and refreshes the manifest.
+
+The manifest prefers the named tunnel when healthy, then Quick Tunnel, then the
+HK VPS fallback. HK VPS remains lower priority because it depends on reverse SSH
+staying up.
 
 Linux example:
 
@@ -121,6 +129,20 @@ Read the current Cloudflare public URL on the host:
 ```powershell
 $state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_8766.state.json" -Raw | ConvertFrom-Json
 $state.urls | Where-Object { $_ -like "https://*.trycloudflare.com*" } | Select-Object -First 1
+```
+
+The Cloudflare Named Tunnel local config and state are stored outside Git:
+
+```text
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_named_tunnel.env.json
+C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_named_tunnel.state.json
+```
+
+Read the fixed Cloudflare base URL on the host after configuration:
+
+```powershell
+$state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_named_tunnel.state.json" -Raw | ConvertFrom-Json
+$state.base_url
 ```
 
 The Bandwagon/VPS reverse SSH config is stored locally outside Git at:
@@ -186,6 +208,78 @@ useful for remote testing but do not provide a fixed URL or uptime guarantee.
 The manifest/watchdog layer makes the changing URL usable for remote agents.
 Use a named Cloudflare Tunnel with a Cloudflare account/domain when a fixed
 production URL is required.
+
+## Stable Cloudflare Named Tunnel
+
+Use this path when other computers need a fixed public URL that does not change
+when `cloudflared` restarts. This requires a Cloudflare account and a hostname
+under a Cloudflare-managed zone. The Cloudflare cert and tunnel credentials are
+only used on this Windows host; remote computers do not need them.
+
+Authorize once in the browser:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+.\tools\cloudflared.exe tunnel login
+```
+
+This creates:
+
+```text
+C:\Users\Administrator\.cloudflared\cert.pem
+```
+
+Create the ignored local config:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+Copy-Item .\examples\cloudflare_named_tunnel.env.example.json .\tmp\cloudflare_named_tunnel.env.json
+notepad .\tmp\cloudflare_named_tunnel.env.json
+```
+
+Set `hostname` to the desired fixed hostname, for example:
+
+```json
+{
+  "tunnel_name": "slam-ai-gateway",
+  "hostname": "slam-ai.example.com",
+  "local_host": "localhost",
+  "port": 8766,
+  "origin_cert": "C:\\Users\\Administrator\\.cloudflared\\cert.pem"
+}
+```
+
+Create or reuse the tunnel and route DNS:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_cloudflare_named_tunnel.ps1 -OverwriteDns
+```
+
+Start the named tunnel and publish the manifest:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_named_tunnel.ps1 -UpdateEndpointManifest -CommitEndpointManifest
+```
+
+Install or refresh login startup entries with the named tunnel watchdog:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -IncludeCloudflareNamedWatchdog
+```
+
+After this, remote computers should still read the GitHub endpoint manifest:
+
+```powershell
+$manifest = Invoke-RestMethod "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+$base = $manifest.active_base_url
+```
+
+When the fixed hostname is healthy, `active_base_url` will point to the named
+tunnel. The SLAM bearer token is still required for `/skill`, `/skill/context`,
+`/status`, `/papers`, `/search`, and `/daily/run`.
 
 ## Fixed Public Entry With Bandwagon VPS
 
@@ -386,6 +480,18 @@ Start the Cloudflare Quick Tunnel watchdog:
 ```powershell
 cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch_cloudflare_quick_tunnel.ps1
+```
+
+Configure and start a fixed Cloudflare Named Tunnel after browser login:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+.\tools\cloudflared.exe tunnel login
+Copy-Item .\examples\cloudflare_named_tunnel.env.example.json .\tmp\cloudflare_named_tunnel.env.json
+notepad .\tmp\cloudflare_named_tunnel.env.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_cloudflare_named_tunnel.ps1 -OverwriteDns
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_named_tunnel.ps1 -UpdateEndpointManifest -CommitEndpointManifest
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -IncludeCloudflareNamedWatchdog
 ```
 
 Configure Bandwagon/VPS nginx and start the reverse SSH tunnel:

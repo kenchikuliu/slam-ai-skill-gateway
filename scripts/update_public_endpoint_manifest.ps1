@@ -69,6 +69,47 @@ function Add-Endpoint {
 
 $Endpoints = [System.Collections.Generic.List[object]]::new()
 
+$NamedTunnelConfigPath = Join-Path $RepoRoot "tmp\cloudflare_named_tunnel.env.json"
+$NamedTunnelStatePath = Join-Path $RepoRoot "tmp\cloudflare_named_tunnel.state.json"
+$NamedTunnelBaseUrl = ""
+if (Test-Path -LiteralPath $NamedTunnelStatePath) {
+    try {
+        $NamedTunnelState = Get-Content -LiteralPath $NamedTunnelStatePath -Raw | ConvertFrom-Json
+        if ($NamedTunnelState.base_url) {
+            $NamedTunnelBaseUrl = [string]$NamedTunnelState.base_url
+        }
+    } catch {
+        $NamedTunnelBaseUrl = ""
+    }
+}
+if (-not $NamedTunnelBaseUrl -and (Test-Path -LiteralPath $NamedTunnelConfigPath)) {
+    try {
+        $NamedTunnelConfig = Get-Content -LiteralPath $NamedTunnelConfigPath -Raw | ConvertFrom-Json
+        if ($NamedTunnelConfig.hostname) {
+            $HostName = ([string]$NamedTunnelConfig.hostname).Trim().TrimEnd("/")
+            $HostName = $HostName -replace "^https?://", ""
+            $NamedTunnelBaseUrl = "https://$HostName"
+        }
+    } catch {
+        $NamedTunnelBaseUrl = ""
+    }
+}
+
+if ($NamedTunnelBaseUrl) {
+    $NamedTunnelHost = $NamedTunnelBaseUrl.TrimEnd("/") -replace "^https?://", ""
+    if ($NamedTunnelHost -ne "slam-ai.example.com" -and $NamedTunnelHost -notlike "*.example.com") {
+        Add-Endpoint `
+            -Endpoints $Endpoints `
+            -Name "cloudflare-named-tunnel" `
+            -Kind "cloudflare_named_tunnel" `
+            -BaseUrl $NamedTunnelBaseUrl `
+            -Stable $true `
+            -HealthyPriority 5 `
+            -UnhealthyPriority 70 `
+            -Note "Preferred stable Cloudflare Tunnel hostname. Requires local named tunnel config and DNS route."
+    }
+}
+
 $CloudflareStatePath = Join-Path $RepoRoot "tmp\cloudflare_8766.state.json"
 if (Test-Path -LiteralPath $CloudflareStatePath) {
     $CloudflareState = Get-Content -LiteralPath $CloudflareStatePath -Raw | ConvertFrom-Json

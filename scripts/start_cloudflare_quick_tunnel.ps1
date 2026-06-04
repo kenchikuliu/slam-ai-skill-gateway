@@ -48,14 +48,16 @@ $Stdout = Join-Path $TmpDir "cloudflare_$Port.out.log"
 $Stderr = Join-Path $TmpDir "cloudflare_$Port.err.log"
 $StatePath = Join-Path $TmpDir "cloudflare_$Port.state.json"
 
-$Existing = Get-Process -ErrorAction SilentlyContinue |
+$Existing = Get-CimInstance Win32_Process -Filter "Name = 'cloudflared.exe'" -ErrorAction SilentlyContinue |
     Where-Object {
-        $_.Path -eq $CloudflaredExe -or
-        $_.Path -eq (Join-Path $RepoRoot "tools\cloudflared.exe")
+        $Executable = if ($_.ExecutablePath) { $_.ExecutablePath } else { "" }
+        $CommandLine = if ($_.CommandLine) { $_.CommandLine } else { "" }
+        ($Executable -eq $CloudflaredExe -or $Executable -eq (Join-Path $RepoRoot "tools\cloudflared.exe")) -and
+        ($CommandLine -like "* tunnel *--url *" -or $CommandLine -like "* tunnel --url *")
     }
 
-if ($Existing) {
-    $Existing | Stop-Process -Force
+foreach ($ProcessInfo in @($Existing)) {
+    Stop-Process -Id $ProcessInfo.ProcessId -Force -ErrorAction SilentlyContinue
 }
 
 $TargetUrl = "http://$LocalHost`:$Port"

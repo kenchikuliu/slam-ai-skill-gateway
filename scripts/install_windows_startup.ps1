@@ -2,6 +2,7 @@ param(
     [string]$RepoRoot = "C:\Users\Administrator\Downloads\slam-ai-skill-gateway",
     [string]$StartupDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
     [switch]$KeepDirectCloudflareStartup,
+    [switch]$IncludeCloudflareNamedWatchdog,
     [switch]$IncludeBandwagonWatchdog
 )
 
@@ -42,6 +43,7 @@ function Disable-StartupCmd {
 
 $GatewayScript = Join-Path $ResolvedRepo "scripts\start_gateway_from_env.ps1"
 $CloudflareWatchdogScript = Join-Path $ResolvedRepo "scripts\watch_cloudflare_quick_tunnel.ps1"
+$CloudflareNamedWatchdogScript = Join-Path $ResolvedRepo "scripts\watch_cloudflare_named_tunnel.ps1"
 $BandwagonWatchdogScript = Join-Path $ResolvedRepo "scripts\watch_bandwagon_reverse_tunnel.ps1"
 
 foreach ($Required in @($GatewayScript, $CloudflareWatchdogScript)) {
@@ -69,6 +71,17 @@ if (-not $KeepDirectCloudflareStartup) {
     if ($Disabled) {
         $Written.disabled_direct_cloudflare_startup = $Disabled
     }
+}
+
+if ($IncludeCloudflareNamedWatchdog) {
+    if (-not (Test-Path -LiteralPath $CloudflareNamedWatchdogScript)) {
+        throw "Missing Cloudflare named tunnel watchdog script: $CloudflareNamedWatchdogScript"
+    }
+    $Written.cloudflare_named_watchdog = Write-StartupCmd -Name "slam-ai-cloudflare-named-watchdog.cmd" -Lines @(
+        "@echo off",
+        "cd /d `"$ResolvedRepo`"",
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$CloudflareNamedWatchdogScript`" *> `"$TmpDir\cloudflare_named_tunnel_watchdog.startup.log`""
+    )
 }
 
 if ($IncludeBandwagonWatchdog) {

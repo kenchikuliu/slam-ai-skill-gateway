@@ -73,8 +73,8 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
 - Remote computers do not need the PDF corpus if they use these HTTP endpoints.
   They only need the endpoint manifest and the SLAM gateway bearer token.
 - The endpoint manifest contains no token. It selects the lowest-priority
-  healthy endpoint, currently preferring Cloudflare Quick Tunnel when the HK VPS
-  reverse SSH tunnel is unhealthy.
+  healthy endpoint, preferring a configured Cloudflare Named Tunnel, then
+  Cloudflare Quick Tunnel, then the HK VPS path proxy.
 - Do not hard-code a `trycloudflare.com` URL on remote computers. Quick Tunnel
   URLs are disposable; remote clients should read the GitHub manifest each time
   they need to connect.
@@ -94,11 +94,14 @@ gateway bearer token. The intended selection rule is:
 use active_base_url, or the lowest-priority endpoint with health_ok=true
 ```
 
-On the Windows host, `scripts\watch_cloudflare_quick_tunnel.ps1` closes the
-loop: it checks the local gateway, restarts it if needed, checks the current
-Cloudflare Quick Tunnel `/health`, restarts the tunnel when needed, and refreshes
-and pushes `public/slam-ai-endpoints.json`. HK VPS remains a lower-priority
-stable fallback because it depends on reverse SSH staying healthy.
+On the Windows host, `scripts\watch_cloudflare_named_tunnel.ps1` can maintain a
+fixed Cloudflare hostname after named tunnel login/configuration.
+`scripts\watch_cloudflare_quick_tunnel.ps1` maintains the account-less
+`trycloudflare.com` fallback: it checks the local gateway, restarts it if
+needed, checks the current Cloudflare Quick Tunnel `/health`, restarts the
+tunnel when needed, and refreshes and pushes `public/slam-ai-endpoints.json`.
+HK VPS remains a lower-priority stable fallback because it depends on reverse
+SSH staying healthy.
 
 Trigger the daily loop remotely:
 
@@ -207,6 +210,77 @@ For LAN access, allow the port on the host machine if needed:
 ```
 
 Use a token when binding to `0.0.0.0`.
+
+## Stable Public URL With Cloudflare Named Tunnel
+
+Use this when a fixed public hostname is required. Unlike Quick Tunnel, a named
+Cloudflare Tunnel needs one browser authorization on this host and a Cloudflare
+zone/domain that can receive the DNS route.
+
+The Cloudflare login cert and tunnel credentials stay outside Git:
+
+```text
+C:\Users\Administrator\.cloudflared\cert.pem
+tmp\cloudflare_named_tunnel.env.json
+tmp\cloudflare_named_tunnel.credentials.json
+tmp\cloudflare_named_tunnel.yml
+tmp\cloudflare_named_tunnel.state.json
+```
+
+First authorize `cloudflared` once in the browser:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+.\tools\cloudflared.exe tunnel login
+```
+
+Then create the local named tunnel config:
+
+```powershell
+Copy-Item .\examples\cloudflare_named_tunnel.env.example.json .\tmp\cloudflare_named_tunnel.env.json
+notepad .\tmp\cloudflare_named_tunnel.env.json
+```
+
+Set `hostname` to a real hostname under your Cloudflare zone, for example:
+
+```json
+{
+  "tunnel_name": "slam-ai-gateway",
+  "hostname": "slam-ai.example.com",
+  "local_host": "localhost",
+  "port": 8766,
+  "origin_cert": "C:\\Users\\Administrator\\.cloudflared\\cert.pem"
+}
+```
+
+Configure or reuse the named tunnel and create the DNS route:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_cloudflare_named_tunnel.ps1 -OverwriteDns
+```
+
+Start it and publish the endpoint manifest:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_cloudflare_named_tunnel.ps1 -UpdateEndpointManifest -CommitEndpointManifest
+```
+
+Install login startup entries, including the named tunnel watchdog:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -IncludeCloudflareNamedWatchdog
+```
+
+When healthy, the public manifest prefers:
+
+```text
+cloudflare-named-tunnel priority 5 -> https://<fixed-hostname>
+cloudflare-quick-tunnel priority 10 -> https://<random>.trycloudflare.com
+hk-vps-path-proxy priority 20 -> http://83.229.126.28/slam-ai
+```
+
+Remote callers still need the SLAM gateway bearer token for every endpoint
+except `/health`.
 
 ## Public Tunnel With Cloudflare Quick Tunnel
 
