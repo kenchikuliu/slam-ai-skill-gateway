@@ -79,6 +79,28 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/con
   URLs are disposable; remote clients should read the GitHub manifest each time
   they need to connect.
 
+Named Cloudflare Tunnel is optional. If it is not configured, remote computers
+can still work reliably by resolving `active_base_url` from the manifest on
+each run. The watchdog updates the manifest when the Quick Tunnel URL changes.
+
+PowerShell examples in `examples\` use this manifest-first behavior by default:
+
+```powershell
+$env:SLAM_AI_GATEWAY_TOKEN = "paste-the-slam-gateway-bearer-token"
+
+.\examples\query_status.ps1
+.\examples\search_papers.ps1 -Query "gaussian slam" -Limit 5
+.\examples\query_skill_context.ps1 -Query "gaussian slam" -PaperLimit 10 -TextLimit 5
+```
+
+Override resolution only when deliberately testing a specific endpoint:
+
+```powershell
+$env:SLAM_AI_BASE_URL = "http://HOST_LAN_IP:8766"
+# or:
+$env:SLAM_AI_ENDPOINT_MANIFEST_URL = "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+```
+
 ## Resilient Public Endpoint Manifest
 
 The public manifest is the stable handoff point for remote computers:

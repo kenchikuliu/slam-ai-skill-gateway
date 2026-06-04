@@ -1,6 +1,8 @@
 param(
     [string]$Query = "gaussian slam",
-    [int]$Limit = 5
+    [int]$PaperLimit = 10,
+    [int]$TextLimit = 5,
+    [switch]$IncludeGraphSummary
 )
 
 $Token = if ($env:SLAM_AI_GATEWAY_TOKEN) { $env:SLAM_AI_GATEWAY_TOKEN } else { $env:SLAM_AI_TOKEN }
@@ -13,4 +15,7 @@ $BaseUrl = Resolve-SlamAiGatewayBaseUrl
 $Headers = @{ Authorization = "Bearer $Token" }
 
 $Encoded = [uri]::EscapeDataString($Query)
-Invoke-RestMethod -Headers $Headers "$BaseUrl/papers?q=$Encoded&limit=$Limit"
+$Graph = if ($IncludeGraphSummary) { "true" } else { "false" }
+Invoke-RestMethod `
+    -Headers $Headers `
+    "$BaseUrl/skill/context?q=$Encoded&paper_limit=$PaperLimit&text_limit=$TextLimit&include_graph_summary=$Graph"

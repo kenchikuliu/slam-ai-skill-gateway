@@ -30,6 +30,11 @@ Current implementation detail:
 - The tunnelto base URL can change after tunnelto restarts unless a fixed subdomain is configured.
 - The SLAM gateway bearer token stays the same until the host config is changed.
 
+Cloudflare Named Tunnel is optional. If it is not configured, remote computers
+should still be able to use this host by reading the published endpoint
+manifest before every call or run. The current Quick Tunnel URL may change, but
+the manifest is the stable rendezvous point.
+
 ## Token Types
 
 There are two different credentials:
@@ -91,6 +96,26 @@ Host-side maintenance can use two Cloudflare watchdogs:
 The manifest prefers the named tunnel when healthy, then Quick Tunnel, then the
 HK VPS fallback. HK VPS remains lower priority because it depends on reverse SSH
 staying up.
+
+PowerShell manifest-first examples:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+$env:SLAM_AI_GATEWAY_TOKEN = "paste-the-slam-gateway-bearer-token"
+
+.\examples\query_status.ps1
+.\examples\search_papers.ps1 -Query "gaussian slam" -Limit 5
+.\examples\query_skill_context.ps1 -Query "gaussian slam" -PaperLimit 10 -TextLimit 5
+```
+
+The examples read:
+
+```text
+https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json
+```
+
+and use `active_base_url` by default. Set `SLAM_AI_BASE_URL` only when you want
+to force a specific LAN, VPS, or tunnel endpoint.
 
 Linux example:
 
