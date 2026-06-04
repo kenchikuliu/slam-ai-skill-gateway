@@ -97,6 +97,24 @@ The manifest prefers the named tunnel when healthy, then Quick Tunnel, then the
 HK VPS fallback. HK VPS remains lower priority because it depends on reverse SSH
 staying up.
 
+The Windows host also has an end-to-end login startup check:
+
+```text
+scripts\check_remote_access_on_startup.ps1
+```
+
+It reads the GitHub raw manifest, resolves `active_base_url`, checks public
+`/health`, verifies unauthenticated `/skill` returns `401`, loads the local
+SLAM bearer token from `tmp\gateway_8766.env.json`, and verifies authenticated
+`/skill/context?q=gaussian%20slam&paper_limit=3&text_limit=1`. If the remote
+check fails, it runs the Cloudflare Quick Tunnel watchdog once and retries. The
+check logs only status codes and corpus counts, not bearer tokens:
+
+```text
+tmp\remote_access_startup_check.log
+tmp\remote_access_startup_check.state.json
+```
+
 PowerShell manifest-first examples:
 
 ```powershell
@@ -483,8 +501,23 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_window
 ```
 
 This creates startup entries for the HTTP gateway and the Cloudflare watchdog.
-It disables the older direct Cloudflare startup entry by default, so the
-watchdog is the single owner of Quick Tunnel lifecycle and manifest publication.
+It also creates `slam-ai-remote-access-check.cmd`, which runs the manifest and
+bearer-auth self-check after a short login delay. It disables the older direct
+Cloudflare startup entry by default, so the watchdog is the single owner of
+Quick Tunnel lifecycle and manifest publication.
+
+The remote access check startup entry is:
+
+```text
+C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-remote-access-check.cmd
+```
+
+To refresh startup entries without the remote self-check:
+
+```powershell
+cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -SkipRemoteAccessStartupCheck
+```
 
 Start or restart the HTTP gateway:
 

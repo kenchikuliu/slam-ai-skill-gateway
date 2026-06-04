@@ -125,6 +125,19 @@ tunnel when needed, and refreshes and pushes `public/slam-ai-endpoints.json`.
 HK VPS remains a lower-priority stable fallback because it depends on reverse
 SSH staying healthy.
 
+`scripts\check_remote_access_on_startup.ps1` is the login-time end-to-end
+self-check. It verifies the GitHub raw manifest, confirms the manifest does not
+include a token, checks public `/health`, confirms unauthenticated `/skill`
+returns `401`, then calls authenticated `/skill/context` with the local bearer
+token from `tmp\gateway_8766.env.json`. If the public check fails, it runs the
+Cloudflare Quick Tunnel watchdog once and retries. It writes only status and
+counts to:
+
+```text
+tmp\remote_access_startup_check.log
+tmp\remote_access_startup_check.state.json
+```
+
 Trigger the daily loop remotely:
 
 ```powershell
@@ -512,10 +525,25 @@ Install or refresh the Windows login startup entries:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1
 ```
 
-This creates startup commands for the HTTP gateway and the Cloudflare watchdog.
-It disables the older direct Cloudflare startup command by default so the
-watchdog is the single owner of Quick Tunnel lifecycle and manifest publication.
-Keep the gateway token in the local config file, not in Git.
+This creates startup commands for the HTTP gateway, the Cloudflare watchdog,
+and the remote access self-check. It disables the older direct Cloudflare
+startup command by default so the watchdog is the single owner of Quick Tunnel
+lifecycle and manifest publication. Keep the gateway token in the local config
+file, not in Git.
+
+The self-check startup command is:
+
+```text
+C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-remote-access-check.cmd
+```
+
+It runs after a short login delay and verifies that other computers can resolve
+the GitHub raw manifest and call the current public gateway with bearer auth.
+To skip installing this check:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows_startup.ps1 -SkipRemoteAccessStartupCheck
+```
 
 To also create the Bandwagon watchdog startup entry:
 
