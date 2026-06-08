@@ -22,8 +22,8 @@
                           "kind":  "bandwagon_vps_path_proxy",
                           "base_url":  "http://83.229.126.28/slam-ai",
                           "health_ok":  false,
-                          "health_status_code":  200,
-                          "health_error":  "",
+                          "health_status_code":  502,
+                          "health_error":  "WebException",
                           "stable_url":  true,
                           "priority":  90,
                           "note":  "Preferred fixed public API when healthy. Depends on the Windows-to-VPS reverse SSH tunnel."
