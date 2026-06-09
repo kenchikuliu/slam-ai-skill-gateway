@@ -114,18 +114,15 @@ function Invoke-PowerShellScriptWithTimeout {
     }
 
     try {
-        $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
-        $StartInfo.FileName = "powershell.exe"
-        $StartInfo.Arguments = (($PowerShellArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
-        $StartInfo.WorkingDirectory = $RepoRoot
-        $StartInfo.UseShellExecute = $false
-        $StartInfo.CreateNoWindow = $true
-        $StartInfo.RedirectStandardOutput = $true
-        $StartInfo.RedirectStandardError = $true
-
-        $Process = [System.Diagnostics.Process]::new()
-        $Process.StartInfo = $StartInfo
-        [void]$Process.Start()
+        $ArgumentLine = (($PowerShellArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
+        $Process = Start-Process `
+            -FilePath "powershell.exe" `
+            -ArgumentList $ArgumentLine `
+            -WorkingDirectory $RepoRoot `
+            -RedirectStandardOutput $StdoutPath `
+            -RedirectStandardError $StderrPath `
+            -WindowStyle Hidden `
+            -PassThru
 
         $Exited = $Process.WaitForExit([Math]::Max(1, $TimeoutSeconds) * 1000)
         if (-not $Exited) {
@@ -134,17 +131,10 @@ function Invoke-PowerShellScriptWithTimeout {
             } catch {
                 Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
             }
-            $StdoutText = $Process.StandardOutput.ReadToEnd()
-            $StderrText = $Process.StandardError.ReadToEnd()
-            [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
-            [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
             return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $true; error = "timeout"; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
         }
 
-        $StdoutText = $Process.StandardOutput.ReadToEnd()
-        $StderrText = $Process.StandardError.ReadToEnd()
-        [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
-        [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
+        $Process.Refresh()
         return [pscustomobject][ordered]@{ ok = ($Process.ExitCode -eq 0); exit_code = $Process.ExitCode; timed_out = $false; error = ""; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
     } catch {
         return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = $_.Exception.Message; pid = $null; stdout = $StdoutPath; stderr = $StderrPath }
@@ -159,6 +149,23 @@ function Get-CurrentManifestBaseUrl {
         $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
         if ($Manifest.active_base_url) {
             return [string]$Manifest.active_base_url
+        }
+    } catch {
+        return ""
+    }
+    return ""
+}
+
+function Get-CurrentManifestEndpointBaseUrl {
+    param([string]$EndpointName)
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        return ""
+    }
+    try {
+        $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+        $Endpoint = @($Manifest.endpoints | Where-Object { $_.name -eq $EndpointName } | Select-Object -First 1)
+        if ($Endpoint.Count -gt 0 -and $Endpoint[0].base_url) {
+            return [string]$Endpoint[0].base_url
         }
     } catch {
         return ""
@@ -253,7 +260,8 @@ while ($true) {
             $ConsecutiveFailures = 0
             $Manifest = $null
             $ManifestBaseUrl = Get-CurrentManifestBaseUrl
-            $ManifestStale = [bool]($Url -and ($ManifestBaseUrl -ne $Url))
+            $ManifestCloudflareUrl = Get-CurrentManifestEndpointBaseUrl -EndpointName "cloudflare-quick-tunnel"
+            $ManifestStale = [bool]($Url -and ($ManifestCloudflareUrl -ne $Url))
             $ShouldRefreshManifest = (-not $LastManifestRefreshAt)
             if ($LastManifestRefreshAt) {
                 $SinceManifestRefresh = ((Get-Date) - $LastManifestRefreshAt).TotalSeconds
@@ -276,6 +284,7 @@ while ($true) {
                 status_code = $Health.status_code
                 local_ok = $Local.ok
                 manifest_active_base_url = $ManifestBaseUrl
+                manifest_cloudflare_base_url = $ManifestCloudflareUrl
                 manifest_stale = $ManifestStale
                 manifest_refresh_ok = if ($Manifest) { $Manifest.ok } else { $null }
                 manifest_refresh_exit_code = if ($Manifest) { $Manifest.exit_code } else { $null }

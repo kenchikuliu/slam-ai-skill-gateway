@@ -102,18 +102,15 @@ function Invoke-PowerShellScriptWithTimeout {
     }
 
     try {
-        $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
-        $StartInfo.FileName = "powershell.exe"
-        $StartInfo.Arguments = (($PowerShellArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
-        $StartInfo.WorkingDirectory = $RepoRoot
-        $StartInfo.UseShellExecute = $false
-        $StartInfo.CreateNoWindow = $true
-        $StartInfo.RedirectStandardOutput = $true
-        $StartInfo.RedirectStandardError = $true
-
-        $Process = [System.Diagnostics.Process]::new()
-        $Process.StartInfo = $StartInfo
-        [void]$Process.Start()
+        $ArgumentLine = (($PowerShellArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
+        $Process = Start-Process `
+            -FilePath "powershell.exe" `
+            -ArgumentList $ArgumentLine `
+            -WorkingDirectory $RepoRoot `
+            -RedirectStandardOutput $StdoutPath `
+            -RedirectStandardError $StderrPath `
+            -WindowStyle Hidden `
+            -PassThru
 
         $Exited = $Process.WaitForExit([Math]::Max(1, $TimeoutSeconds) * 1000)
         if (-not $Exited) {
@@ -122,17 +119,10 @@ function Invoke-PowerShellScriptWithTimeout {
             } catch {
                 Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
             }
-            $StdoutText = $Process.StandardOutput.ReadToEnd()
-            $StderrText = $Process.StandardError.ReadToEnd()
-            [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
-            [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
             return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $true; error = "timeout"; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
         }
 
-        $StdoutText = $Process.StandardOutput.ReadToEnd()
-        $StderrText = $Process.StandardError.ReadToEnd()
-        [System.IO.File]::WriteAllText($StdoutPath, $StdoutText, [System.Text.UTF8Encoding]::new($false))
-        [System.IO.File]::WriteAllText($StderrPath, $StderrText, [System.Text.UTF8Encoding]::new($false))
+        $Process.Refresh()
         return [pscustomobject][ordered]@{ ok = ($Process.ExitCode -eq 0); exit_code = $Process.ExitCode; timed_out = $false; error = ""; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
     } catch {
         return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = $_.Exception.Message; pid = $null; stdout = $StdoutPath; stderr = $StderrPath }
