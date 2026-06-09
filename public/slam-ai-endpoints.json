@@ -3,13 +3,13 @@
     "token_required":  true,
     "token_included":  false,
     "bearer_header":  "Authorization: Bearer \u003cSLAM_AI_TOKEN\u003e",
-    "active_base_url":  "https://cloud-teach-theory-refrigerator.trycloudflare.com",
+    "active_base_url":  "https://overnight-workers-still-alternative.trycloudflare.com",
     "selection_rule":  "Use the lowest-priority endpoint with health_ok=true. If none are healthy, retry later or use the local host.",
     "endpoints":  [
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://cloud-teach-theory-refrigerator.trycloudflare.com",
+                          "base_url":  "https://overnight-workers-still-alternative.trycloudflare.com",
                           "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
