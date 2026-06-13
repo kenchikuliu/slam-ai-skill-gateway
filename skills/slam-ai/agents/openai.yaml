@@ -1,0 +1,4 @@
+interface:
+  display_name: "SLAM AI"
+  short_description: "Operate the local SLAM paper corpus and daily sync"
+  default_prompt: "Use $slam-ai to expand, import, maintain, review, and query the local SLAM paper corpus through the unified local Graphify+turbovec workflow."
