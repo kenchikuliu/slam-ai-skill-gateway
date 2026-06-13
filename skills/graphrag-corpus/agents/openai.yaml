@@ -1,0 +1,4 @@
+interface:
+  display_name: "GraphRAG Corpus"
+  short_description: "Operate reusable graph-plus-vector RAG over local corpora."
+  default_prompt: "Use GraphRAG Corpus to profile a local corpus and build a graph-plus-vector retrieval workflow."
