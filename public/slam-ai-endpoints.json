@@ -3,9 +3,20 @@
     "token_required":  true,
     "token_included":  false,
     "bearer_header":  "Authorization: Bearer \u003cSLAM_AI_TOKEN\u003e",
-    "active_base_url":  "https://jungle-sociology-corrections-llc.trycloudflare.com",
+    "active_base_url":  "http://83.229.126.28/slam-ai",
     "selection_rule":  "Use the lowest-priority endpoint with health_ok=true. If none are healthy, retry later or use the local host.",
     "endpoints":  [
+                      {
+                          "name":  "hk-vps-path-proxy",
+                          "kind":  "bandwagon_vps_path_proxy",
+                          "base_url":  "http://83.229.126.28/slam-ai",
+                          "health_ok":  true,
+                          "health_status_code":  200,
+                          "health_error":  "",
+                          "stable_url":  true,
+                          "priority":  8,
+                          "note":  "Preferred fixed public API when healthy. Depends on the Windows-to-VPS reverse SSH tunnel."
+                      },
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
@@ -16,17 +27,6 @@
                           "stable_url":  false,
                           "priority":  10,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
-                      },
-                      {
-                          "name":  "hk-vps-path-proxy",
-                          "kind":  "bandwagon_vps_path_proxy",
-                          "base_url":  "http://83.229.126.28/slam-ai",
-                          "health_ok":  false,
-                          "health_status_code":  502,
-                          "health_error":  "WebException",
-                          "stable_url":  true,
-                          "priority":  90,
-                          "note":  "Preferred fixed public API when healthy. Depends on the Windows-to-VPS reverse SSH tunnel."
                       }
                   ]
 }
