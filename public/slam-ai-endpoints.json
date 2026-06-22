@@ -3,16 +3,16 @@
     "token_required":  true,
     "token_included":  false,
     "bearer_header":  "Authorization: Bearer \u003cSLAM_AI_TOKEN\u003e",
-    "active_base_url":  "https://transmit-pest-arlington-admitted.trycloudflare.com",
+    "active_base_url":  "https://api.trycloudflare.com",
     "selection_rule":  "Use the lowest-priority endpoint with health_ok=true. If none are healthy, retry later or use the local host.",
     "endpoints":  [
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://transmit-pest-arlington-admitted.trycloudflare.com",
+                          "base_url":  "https://api.trycloudflare.com",
                           "health_ok":  false,
-                          "health_status_code":  530,
-                          "health_error":  "WebException",
+                          "health_status_code":  200,
+                          "health_error":  "",
                           "stable_url":  false,
                           "priority":  80,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
