@@ -21,11 +21,11 @@
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
                           "base_url":  "https://posted-segment-uni-garage.trycloudflare.com",
-                          "health_ok":  false,
-                          "health_status_code":  null,
-                          "health_error":  "WebException",
+                          "health_ok":  true,
+                          "health_status_code":  200,
+                          "health_error":  "",
                           "stable_url":  false,
-                          "priority":  80,
+                          "priority":  10,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
                       }
                   ]
