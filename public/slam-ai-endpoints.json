@@ -20,12 +20,12 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://api.trycloudflare.com",
-                          "health_ok":  false,
+                          "base_url":  "https://recognition-expensive-operates-depend.trycloudflare.com",
+                          "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
                           "stable_url":  false,
-                          "priority":  80,
+                          "priority":  10,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
                       }
                   ]
