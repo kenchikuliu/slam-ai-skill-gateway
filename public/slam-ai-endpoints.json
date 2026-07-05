@@ -22,7 +22,7 @@
                           "kind":  "bandwagon_vps_path_proxy",
                           "base_url":  "http://83.229.126.28/slam-ai",
                           "health_ok":  false,
-                          "health_status_code":  502,
+                          "health_status_code":  null,
                           "health_error":  "WebException",
                           "stable_url":  true,
                           "priority":  90,
