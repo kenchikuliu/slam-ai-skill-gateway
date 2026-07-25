@@ -22,8 +22,8 @@
                           "kind":  "cloudflare_quick_tunnel",
                           "base_url":  "https://api.trycloudflare.com",
                           "health_ok":  false,
-                          "health_status_code":  200,
-                          "health_error":  "",
+                          "health_status_code":  null,
+                          "health_error":  "WebException",
                           "stable_url":  false,
                           "priority":  80,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
