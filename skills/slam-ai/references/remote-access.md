@@ -17,6 +17,27 @@ C:\Users\Administrator\Downloads\3DGS-SLAM-Papers
 
 Do not commit access tokens, tunnel keys, or local `tmp/` files.
 
+## Latest Verification
+
+Verified on `2026-07-28`:
+
+- Local gateway listens on `0.0.0.0:8766`.
+- Local `GET /health` succeeds.
+- Local and public unauthenticated `GET /skill` return HTTP `401`.
+- Authenticated local and public `GET /skill/context?q=gaussian%20slam` return
+  merged-graph paper candidates and text snippets.
+- GitHub endpoint manifest is reachable, has `token_included=false`, and
+  resolves `active_base_url` to a healthy HTTPS Cloudflare endpoint.
+- The manifest marks the HTTPS Quick Tunnel `authentication_safe=true` and the
+  plain HTTP HK VPS path `authentication_safe=false`.
+- The gateway bearer token was rotated after the old manifest briefly selected
+  an invalid Cloudflare API address and the HTTP VPS path.
+- Watchdog subprocess exit codes, JSON health validation, unhealthy-manifest
+  fallback, and transient-log retention were fixed in gateway commit `8dfb739`.
+
+Remote clients should still read the endpoint manifest for every session
+instead of hard-coding the current Cloudflare Quick Tunnel URL.
+
 ## Skill vs Data
 
 The `slam-ai` skill is an instruction/workflow layer, not the paper database
@@ -46,8 +67,10 @@ of hard-coding the HK VPS URL:
 https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json
 ```
 
-Use `active_base_url`, or the first endpoint with `health_ok=true` and the
-lowest `priority`. The manifest contains no bearer token.
+Use `active_base_url`, or the first endpoint with both `health_ok=true` and
+`authentication_safe=true` at the lowest `priority`. The manifest contains no
+bearer token. Never send the bearer token to an endpoint whose URL is plain
+HTTP or whose `authentication_safe` value is false.
 
 The Windows host maintains this manifest through Cloudflare watchdog scripts:
 
@@ -56,10 +79,11 @@ The Windows host maintains this manifest through Cloudflare watchdog scripts:
 - `C:\Users\Administrator\Downloads\slam-ai-skill-gateway\scripts\watch_cloudflare_quick_tunnel.ps1`
   for the account-less `trycloudflare.com` fallback.
 
-The manifest should prefer the named tunnel when healthy, then Quick Tunnel,
-then the HK VPS path proxy. Remote machines should treat the GitHub raw
-manifest as the stable entry point, not the current random `trycloudflare.com`
-URL.
+The manifest should prefer the named tunnel when healthy, then Quick Tunnel.
+The current HK VPS path is plain HTTP and is retained only as a diagnostic
+health endpoint until HTTPS is configured. Remote machines should treat the
+GitHub raw manifest as the stable entry point, not the current random
+`trycloudflare.com` URL.
 
 Cloudflare Named Tunnel is optional. If it is not configured, remote computers
 can still use this host by reading the published endpoint manifest before every
@@ -221,18 +245,15 @@ Get-NetIPAddress -AddressFamily IPv4 |
   Select-Object IPAddress,InterfaceAlias
 ```
 
-Remote computer test:
+Plain HTTP LAN access is suitable only for unauthenticated health checks on a
+trusted network. Do not send the bearer token over this URL. Use an HTTPS
+tunnel for authenticated calls.
+
+Remote computer health test:
 
 ```powershell
 $base = "http://172.25.16.122:8766"
-$token = "paste-the-slam-gateway-bearer-token"
-
 Invoke-RestMethod "$base/health"
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill"
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/skill/context?q=gaussian%20slam&paper_limit=10&text_limit=5"
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/status"
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/papers?q=gaussian%20slam&limit=5"
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/search?q=loop%20closure&limit=5"
 ```
 
 If LAN access fails but local access works, check Windows Firewall. The helper is:
@@ -304,12 +325,10 @@ cd C:\Users\Administrator\Downloads\slam-ai-skill-gateway
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_bandwagon_reverse_tunnel.ps1
 ```
 
-Remote caller example:
+Authenticated remote caller example after HTTPS is configured:
 
 ```powershell
-$base = "http://VPS_IP/slam-ai"
-# or, if domain/HTTPS is configured:
-# $base = "https://slam.example.com/slam-ai"
+$base = "https://slam.example.com/slam-ai"
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -336,10 +355,10 @@ Key facts:
 - The VPS public root site was not replaced; only the `/slam-ai/` path proxy was
   inserted into the existing BT/aaPanel Nginx default site.
 - `GET /health` succeeds without auth through the HK URL.
-- Authenticated `GET /skill` returns `remote_skill_data_interface`.
-- Authenticated `/skill/context?q=gaussian%20slam&paper_limit=5&text_limit=2`
-  returns merged-graph paper candidates from the 944-PDF root corpus.
-- Unauthenticated `GET /skill` returns HTTP `401`.
+- The current HK URL is plain HTTP, is marked `authentication_safe=false`, and
+  must not receive bearer-authenticated requests.
+- Configure HTTPS before using this VPS path for `/skill`, `/skill/context`, or
+  any other authenticated endpoint.
 
 ## Public Cloudflare Quick Tunnel Usage
 
@@ -379,7 +398,7 @@ $state = Get-Content -LiteralPath "C:\Users\Administrator\Downloads\slam-ai-skil
 $state.urls | Where-Object { $_ -like "https://*.trycloudflare.com*" } | Select-Object -First 1
 ```
 
-Current verified Cloudflare public URL on 2026-06-03:
+Earlier observed Cloudflare public URL on 2026-06-03:
 
 ```text
 https://displays-touring-vancouver-pan.trycloudflare.com
@@ -393,7 +412,8 @@ with a Cloudflare account/domain.
 Remote computer public test:
 
 ```powershell
-$base = "https://displays-touring-vancouver-pan.trycloudflare.com"
+$manifest = Invoke-RestMethod "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+$base = $manifest.active_base_url
 $token = "paste-the-slam-gateway-bearer-token"
 
 Invoke-RestMethod "$base/health"
@@ -573,10 +593,13 @@ Invoke-RestMethod -Headers @{ Authorization = "Bearer $token" } "$base/search?q=
 For a computer that is not on the same LAN, the full pattern is:
 
 ```text
-base URL = fixed VPS/domain URL, current Cloudflare Quick Tunnel URL, tunnelto public URL, or LAN URL
+base URL = HTTPS endpoint selected from the public manifest
 token    = SLAM gateway bearer token from tmp\gateway_8766.env.json
 header   = Authorization: Bearer <SLAM gateway bearer token>
 ```
+
+Plain HTTP LAN or VPS URLs may be used for `/health` diagnostics only. They are
+not valid bearer-authenticated base URLs.
 
 Security check:
 

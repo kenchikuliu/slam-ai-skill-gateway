@@ -19,7 +19,24 @@ Daily loop:
 3. run `mineru_batch_processor.py` only when new PDFs were imported or root markdown is pending
 4. rebuild root Graphify outputs and Neo4j exports after extraction
 5. rebuild the merged reviewed corpus after Graphify, unless explicitly skipped
-6. write full-loop state under `references-out\arxiv_daily`
+6. audit all discovered turbovec indexes against their Markdown sources and
+   selected graph timestamps
+7. rebuild all turbovec indexes plus HTML reports only when the audit is stale,
+   then audit again before declaring success
+8. write full-loop and vector-health state under `references-out\arxiv_daily`
+
+Vector audit and state:
+
+```text
+C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\audit_turbovec_freshness.py
+C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\arxiv_daily\turbovec_freshness.json
+```
+
+CUDA runtime used for rebuilds:
+
+```text
+C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe
+```
 
 Run manually:
 
@@ -139,7 +156,11 @@ Use this only when the user explicitly wants to retry through legitimate publish
 
 Windows scheduled-task registration was retried with both `Register-ScheduledTask` and `schtasks /Create`, and both returned `Access is denied` in the current environment.
 
-The live fallback is a Startup-folder launcher that invokes `run_daily_slam_skill_full_update_if_needed.ps1` on login. The guard records `full_automation_state.json`, runs the full loop at most once per local calendar day after success, and permits same-day retry after failure.
+The live fallback is a Startup-folder launcher that starts
+`watch_daily_slam_skill_full_update.ps1` on login. The watcher invokes the full
+guard every `60` minutes. The arXiv/import portion runs at most once per local
+calendar day after success, while the lightweight vector freshness audit still
+runs on every watcher pass. A named mutex prevents concurrent guard instances.
 
 If host policy later permits Task Scheduler, `register_daily_arxiv_pull_task.ps1`
 now registers the same full-loop guard rather than the old staged-only pull.
@@ -152,4 +173,6 @@ now registers the same full-loop guard rather than the old staged-only pull.
 - do not bypass paywalls or logins
 - publisher-access retry is allowed only through official routes and only when direct access returns a valid matching PDF
 - extraction/OCR and Graphify run only when new root PDFs arrive or root markdown is pending; they are skipped on no-op days
+- vector indexes are checked every watcher pass and rebuilt only when source
+  sets, graph/index timestamps, summary counts, or unmapped status show staleness
 - the Startup fallback triggers on login, not at a fixed wall-clock time; use Task Scheduler only if the host policy later allows it

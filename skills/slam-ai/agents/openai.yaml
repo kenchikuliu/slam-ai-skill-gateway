@@ -1,4 +1,4 @@
 interface:
   display_name: "SLAM AI"
-  short_description: "Operate the local SLAM paper corpus and daily sync"
-  default_prompt: "Use $slam-ai to expand, import, maintain, review, and query the local SLAM paper corpus through the unified local Graphify+turbovec workflow."
+  short_description: "Query the SLAM corpus and dynamic 3DGS landscape"
+  default_prompt: "Use $slam-ai to query the local SLAM corpus or compare dynamic-scene and 4D Gaussian SLAM papers with verified identities and evaluation caveats."

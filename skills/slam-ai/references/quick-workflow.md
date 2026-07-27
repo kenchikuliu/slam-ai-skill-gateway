@@ -14,6 +14,19 @@ unified local CLI:
 - `slam_skill_cli.py query`
 - `slam_skill_cli.py report`
 
+## Python Runtime
+
+For commands that load SentenceTransformers (`refresh`, `turbovec-build`,
+`turbovec-build-all`, and `query`), use the CUDA-capable interpreter:
+
+```text
+C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe
+```
+
+The system Python currently has CPU-only Torch and is incompatible with the
+installed Transformers version. Graph-only review/report commands may still use
+the system Python.
+
 ## Default Corpus
 
 Unless the user explicitly wants root-corpus rebuild work, use:
@@ -67,7 +80,7 @@ Do not fill both stage-1 files at the same time unless you also pass
 ### 3. Re-run review, turbovec, and report together
 
 ```powershell
-python slam_skill_cli.py refresh --corpus-root C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion --write-html
+& C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe slam_skill_cli.py refresh --corpus-root C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion --write-html
 ```
 
 This does three things in one pass:
@@ -85,7 +98,7 @@ C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_refer
 ### 4. Query the refreshed corpus
 
 ```powershell
-python slam_skill_cli.py query "gaussian splatting loop closure" --out-dir C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion\turbovec-out --category SLAM --top-k 5 --dedupe-papers
+& C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe slam_skill_cli.py query "gaussian splatting loop closure" --out-dir C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion\turbovec-out --category SLAM --top-k 5 --dedupe-papers
 ```
 
 Use this pattern for:
@@ -112,7 +125,7 @@ python slam_skill_cli.py review --corpus-root C:\Users\Administrator\Downloads\3
 Only rebuild turbovec:
 
 ```powershell
-python slam_skill_cli.py turbovec-build --root-dir C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion
+& C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe slam_skill_cli.py turbovec-build --root-dir C:\Users\Administrator\Downloads\3DGS-SLAM-Papers\references-out\top_venue_reference_expansion
 ```
 
 ## Guardrails

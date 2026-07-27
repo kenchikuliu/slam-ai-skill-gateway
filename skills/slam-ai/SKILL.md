@@ -1,6 +1,6 @@
 ---
 name: slam-ai
-description: Use when the user wants to expand, import, refresh, search, cite, or operate the local SLAM literature corpus in C:\Users\Administrator\Downloads\3DGS-SLAM-Papers, especially for 3DGS/Gaussian-Splatting SLAM, daily arXiv pulls, top-venue reference harvesting, public-OA reference completion, staged-PDF imports into the root corpus, paper-writing citations, Related Work support, and follow-on extraction or graph rebuild work.
+description: Use when the user wants to expand, import, refresh, search, cite, or operate the local SLAM literature corpus in C:\Users\Administrator\Downloads\3DGS-SLAM-Papers, especially for 3DGS/Gaussian-Splatting SLAM, dynamic-scene and 4DGS-SLAM literature comparisons, daily arXiv pulls, top-venue reference harvesting, public-OA reference completion, staged-PDF imports into the root corpus, paper-writing citations, Related Work support, and follow-on extraction or graph rebuild work.
 ---
 
 # SLAM AI
@@ -26,6 +26,12 @@ Use:
 - `public_oa_reference_sweep.py` for the final high-confidence public-OA pass
 
 Daily arXiv PDFs are a closed-loop exception only for the conservative `core_gaussian_slam` bucket: the full-loop guard imports new valid core daily arXiv PDFs into the root, runs extraction/OCR, rebuilds root Graphify, and rebuilds the merged reviewed graph when new root PDFs arrive. Broader daily buckets such as `general_3dgs`, `general_slam`, and `reliability_slam` are staged and reported for review by default. Keep top-venue reference expansion outputs in `references-out/` unless the user explicitly asks for broad root import.
+
+The hourly watcher also runs an exact turbovec freshness audit even after the
+daily arXiv loop has already succeeded. It compares Markdown sources, indexed
+sources, graph/index timestamps, and unmapped files across all discovered
+corpora. Fresh indexes are skipped; stale indexes are rebuilt automatically
+with the configured CUDA Python runtime and audited again before success.
 
 ### Import staged papers into the root corpus
 
@@ -69,6 +75,34 @@ Default local operating pattern:
 
 Do not overwrite the existing reviewed/deduped graph outputs unless the user explicitly wants a new graph version. Prefer rerunning extraction first, then validate counts before touching review-stage outputs.
 
+### Dynamic-scene 3DGS-SLAM landscape or baseline comparison
+
+Read [references/dynamic-3dgs-slam.md](references/dynamic-3dgs-slam.md).
+
+Use this path when the user asks for dynamic Gaussian SLAM papers, moving-object
+handling, anti-dynamic versus full dynamic reconstruction, non-rigid Gaussian
+SLAM, 4DGS-SLAM, benchmark comparisons, or a dynamic-scene novelty check.
+
+Required behavior:
+
+- classify each method by output contract before comparing it: static-output,
+  dynamic/object map, non-rigid map, causal 4D map, or offline reconstruction
+- record sensor input, depth and pose sources, pose-map coupling, causality,
+  post-refinement, runtime scope, trajectory scope, and rendering split
+- disambiguate the three distinct `DGS-SLAM` papers by first author and stable
+  identifier
+- treat `ADD-SLAM` and `CAD-SLAM` (`arXiv:2505.19420`) as one paper
+- do not classify a system using `4D radar` as `4DGS-SLAM` unless its Gaussian
+  output is explicitly time-varying; `Rad-GS`, for example, produces a static map
+- keep online reconstruction or point-tracking work in an adjacent category when
+  camera pose is only a nuisance variable and no SLAM trajectory is evaluated
+- inspect repository contents and distinguish released source, partial source,
+  project/README-only shells, promised releases, and no official implementation
+- do not compare static-background masked PSNR with full dynamic-frame 4D PSNR
+- do not describe renderer FPS, tracking-only FPS, or a pipeline that excludes
+  segmentation/post-refinement as end-to-end real-time performance
+- keep offline dynamic Gaussian reconstruction out of SLAM rankings
+
 ### Merge staged references into a reviewed corpus
 
 Use this path when the user wants the staged `top_venue_reference_expansion` corpus merged with the main root corpus at citation/concept level, followed by category review and dedupe.
@@ -93,6 +127,10 @@ Current gateway facts:
 - HTTP API port: `8766`
 - Local gateway config/token file: `tmp\gateway_8766.env.json`
 - Public tunnel state file: `tmp\tunnelto_8766.state.json`
+- Remote clients must resolve the public manifest and use only an endpoint with
+  both `health_ok=true` and `authentication_safe=true`.
+- Never send the SLAM bearer token to a plain HTTP endpoint. The current HK VPS
+  HTTP path is retained for health diagnostics only until HTTPS is configured.
 - Do not write tunnelto access keys or SLAM bearer tokens into Git or skill docs.
 - Stdio MCP is local to the machine running the MCP client. Other computers should use the HTTP API unless a separate HTTP-to-MCP bridge is added.
 
@@ -107,6 +145,8 @@ Default behavior:
 - Prefer current corpus papers for "latest" or recent-work claims, but check `references/current-state.md` and daily-loop state before claiming freshness.
 - Do not invent citations. Use only papers found in the local corpus, the user's bibliography, Zotero/library context, or verified external sources.
 - Group Related Work by technical role, not by a raw chronological citation list.
+- For dynamic-scene writing, use the task classes and identity warnings in
+  `references/dynamic-3dgs-slam.md` before selecting baselines.
 - If writing uses `$research-paper-writing`, combine that skill's section structure with this corpus as the citation source.
 
 ## Working Rules
@@ -118,6 +158,8 @@ Default behavior:
 - After manual category edits in a staged corpus, prefer `slam_skill_cli.py refresh`.
 - When the user says "continue import", default to the recent5y staged corpus, not the full 811 staged reference PDFs.
 - After importing to the root, report the new root PDF count and the pending markdown extraction count.
+- For dynamic-scene comparisons, never collapse static-output, object-aware,
+  non-rigid, and 4D methods into one leaderboard.
 
 ## References
 
@@ -126,3 +168,4 @@ Default behavior:
 - [references/import-policy.md](references/import-policy.md): safe import commands and extraction policy
 - [references/automation.md](references/automation.md): daily pull, reference expansion, OA sweep, scheduler status
 - [references/remote-access.md](references/remote-access.md): HTTP gateway, tunnelto, other-computer usage, and MCP boundary
+- [references/dynamic-3dgs-slam.md](references/dynamic-3dgs-slam.md): verified dynamic-scene taxonomy, priority papers, identity collisions, benchmark audit, and maintenance rules

@@ -1,9 +1,39 @@
 # Current State
 
+## Latest Verified Status
+
+Verified on `2026-07-27` from the local corpus artifacts, full-loop state, and
+fresh Graphify/turbovec rebuild manifests:
+
+- Root corpus: `964` root PDFs, `964` extracted markdown files, `0` pending
+  markdown extractions.
+- Raw Graphify: `964` markdown files, `1132` nodes, `13400` edges, `12`
+  hyperedges.
+- Merged reviewed graph: `1792` deduped document nodes, `1900` total nodes,
+  `5066` edges, `9` hyperedges.
+- Merged Neo4j export: `1900` node rows, `5066` edge rows, `1799`
+  hyperedge-member rows.
+- Daily loop: latest local run on `2026-07-25` succeeded; see
+  `references/daily-loop-state.md` for the live daily-loop snapshot.
+- Top-venue and merged turbovec indexes were rebuilt on `2026-07-27` after a
+  targeted observability-prior import. The root index remains the verified
+  `2026-07-25T19:50:54` build.
+- Root turbovec now includes `964` markdown files, `1787` graph-backed papers,
+  `45517` chunks, and `0` unmapped files.
+- Merged turbovec now includes `1817` markdown files, `1792` papers, `59193`
+  chunks, and `0` unmapped files.
+- Top-venue turbovec now includes `853` markdown files, `853` papers, `13676`
+  chunks, and `0` unmapped files.
+- File-level verification found `0` missing and `0` extra indexed source files
+  in all three corpora.
+- CUDA rebuild/query runtime: `C:\Users\Administrator\.venvs\streetcuda310\Scripts\python.exe`
+  (`torch 2.7.1+cu118`). The system Python currently has CPU-only Torch and is
+  not suitable for SentenceTransformers indexing.
+
 ## Workspace
 
 - Root corpus: `C:\Users\Administrator\Downloads\3DGS-SLAM-Papers`
-- Current date anchor: `2026-06-12`
+- Current date anchor: `2026-07-27`
 - Unified local corpus CLI: `slam_skill_cli.py`
 - Local CLI subcommands:
   - `review`
@@ -16,16 +46,16 @@
 
 ## Root Corpus Snapshot
 
-- Root PDFs: `945`
-- Extracted markdown files: `945`
+- Root PDFs: `964`
+- Extracted markdown files: `964`
 - Pending markdown extractions after the latest import: `0`
 
 The raw Graphify snapshot has already been refreshed after the latest import:
 
 - `graphify-out\graphify_summary.json`
-  - `source_markdown_count`: `945`
-  - `node_count`: `1113`
-  - `edge_count`: `13097`
+  - `source_markdown_count`: `964`
+  - `node_count`: `1132`
+  - `edge_count`: `13400`
   - `hyperedge_count`: `12`
 
 The reviewed filtered/deduped graph and report chain is still the older curated baseline until a deliberate re-review pass is run.
@@ -34,42 +64,42 @@ The reviewed filtered/deduped graph and report chain is still the older curated 
 
 - Workspace: `references-out\merged_corpus_review`
 - Driver script: `run_merged_corpus_review_pipeline.py`
-- Inputs merged on `2026-06-12`:
-  - main markdown: `945`
-  - staged top-venue markdown: `848`
-  - combined markdown: `1793`
+- Current merged workspace input copy:
+  - main markdown: `964`
+  - staged top-venue markdown: `853`
+  - combined markdown: `1817`
 - Combined reference layer:
   - `references-out\merged_corpus_review\references-out\summary.json`
-  - `total_reference_entries`: `89053`
-  - `unique_reference_entries`: `75815`
+  - `total_reference_entries`: `90121`
+  - `unique_reference_entries`: `76582`
 - Standardized reference layer:
   - `references-out\merged_corpus_review\references-out\standardized\summary.json`
-  - `unique_standardized_references`: `44798`
-  - `references_with_arxiv_id`: `4332`
-  - `references_with_doi`: `1117`
+  - `unique_standardized_references`: `45184`
+  - `references_with_arxiv_id`: `4372`
+  - `references_with_doi`: `1126`
 - Local citation recovery:
   - `references-out\merged_corpus_review\references-out\citation-graph\summary.json`
-  - accepted high-confidence citation edges added into graph merge: `1380`
-  - source papers with local citations: `1269`
-  - target local papers cited: `371`
+  - accepted high-confidence citation edges added into graph merge: `1436`
+  - source papers with local citations: `1288`
+  - target local papers cited: `380`
 - Merged raw graph:
   - `references-out\merged_corpus_review\graphify-out\graphify_merged_summary.json`
-  - `merged_nodes`: `1961`
-  - `merged_edges`: `24111`
+  - `merged_nodes`: `1985`
+  - `merged_edges`: `24527`
 - Recategorization result:
-  - `unknown_document_count_before`: `1122`
+  - `unknown_document_count_before`: `1146`
   - `unknown_document_count_after`: `0`
 - Final reviewed + deduped output:
   - `references-out\merged_corpus_review\graphify-out\filtered\recategorized\final_reviewed\final_reviewed_v2\final_reviewed_v3\deduped\graphify_merged_reviewed_deduped.json`
-  - document nodes after full dedupe: `1768`
-  - total nodes: `1877`
-  - total edges: `5289`
+  - document nodes after full dedupe: `1792`
+  - total nodes: `1900`
+  - total edges: `5066`
   - hyperedges: `9`
 - Neo4j export:
   - `references-out\merged_corpus_review\graphify-out\filtered\recategorized\final_reviewed\final_reviewed_v2\final_reviewed_v3\deduped\neo4j`
-  - `node_rows`: `1877`
-  - `edge_rows`: `5289`
-  - `hyperedge_member_rows`: `1775`
+  - `node_rows`: `1900`
+  - `edge_rows`: `5066`
+  - `hyperedge_member_rows`: `1799`
 - Identity dedupe outcome:
   - cross-corpus identity merges: `27`
   - breakdown: `26` title-based, `1` arXiv-based
@@ -80,14 +110,14 @@ Merged turbovec output:
 
 - `references-out\merged_corpus_review\turbovec-out\summary.json`
 - graph path: `references-out\merged_corpus_review\graphify-out\filtered\recategorized\final_reviewed\final_reviewed_v2\final_reviewed_v3\deduped\graphify_merged_reviewed_deduped.json`
-- papers after identity dedupe: `1768`
-- chunks: `58852`
+- papers after identity dedupe: `1792`
+- chunks: `59193`
 - unmapped files: `0`
 - category chunk counts:
-  - `SLAM`: `15115`
-  - `Robotics`: `9942`
-  - `General`: `29754`
-  - `SLAM-Supplement`: `4041`
+  - `SLAM`: `15286`
+  - `Robotics`: `10023`
+  - `General`: `29780`
+  - `SLAM-Supplement`: `4104`
 
 ## Recent5Y Staged Corpus
 
@@ -112,56 +142,56 @@ Import result on `2026-06-03`:
 ## Top-Venue Reference Expansion
 
 - Path: `references-out\top_venue_reference_expansion`
-- Final staged reference PDFs: `848`
-- Total bytes: `8997744859` (`8.38 GiB`)
+- Final staged reference PDFs: `853`
+- Total bytes: `9010314554` (`8.39 GiB`)
 - Verified: `0` bad PDF headers, `0` tiny fake files
 - OCR/markdown output path: `references-out\top_venue_reference_expansion\extracted_markdown`
-- Staged markdown files: `848`
+- Staged markdown files: `853`
 - Staged Graphify output path: `references-out\top_venue_reference_expansion\graphify-out`
 - Staged Graphify summary:
-  - `source_markdown_count`: `848`
-  - `node_count`: `885`
-  - `edge_count`: `9634`
+  - `source_markdown_count`: `853`
+  - `node_count`: `890`
+  - `edge_count`: `9691`
   - `hyperedge_count`: `1`
 - Corpus-local reviewed pipeline summary:
   - `references-out\top_venue_reference_expansion\review_pipeline_summary.json`
 - Corpus-local reviewed + deduped graph:
   - `references-out\top_venue_reference_expansion\graphify-out\filtered\recategorized\final_reviewed\final_reviewed_v2\final_reviewed_v3\deduped\graphify_final_reviewed_v3_deduped.json`
-  - reviewed documents: `848`
-  - reviewed nodes: `868`
-  - reviewed edges: `1544`
+  - reviewed documents: `853`
+  - reviewed nodes: `873`
+  - reviewed edges: `1558`
   - category counts:
-    - `SLAM`: `296`
-    - `Robotics`: `275`
-    - `General`: `179`
-    - `SLAM-Supplement`: `98`
+    - `SLAM`: `300`
+    - `Robotics`: `271`
+    - `General`: `180`
+    - `SLAM-Supplement`: `102`
 - Review workspace:
   - `references-out\top_venue_reference_expansion\graphify-out\filtered\recategorized\review_workspace`
-  - total queue items: `848`
-  - high priority: `403`
-  - medium priority: `116`
-  - low priority: `329`
+  - total queue items: `853`
+  - high priority: `406`
+  - medium priority: `117`
+  - low priority: `330`
   - low shortlist: `25`
 - Local turbovec output:
   - `references-out\top_venue_reference_expansion\turbovec-out\summary.json`
   - graph path points at the reviewed deduped graph above
-  - papers: `848`
-  - chunks: `13595`
+  - papers: `853`
+  - chunks: `13676`
   - category chunk counts:
-    - `SLAM`: `5067`
-    - `Robotics`: `3961`
+    - `SLAM`: `5086`
+    - `Robotics`: `4003`
     - `General`: `2884`
-    - `SLAM-Supplement`: `1683`
+    - `SLAM-Supplement`: `1703`
 - Local HTML report:
   - `references-out\top_venue_reference_expansion\corpus_report.html`
 - Staged Neo4j export:
-  - `node_rows`: `885`
-  - `edge_rows`: `9634`
-  - `hyperedge_member_rows`: `848`
+  - `node_rows`: `890`
+  - `edge_rows`: `9691`
+  - `hyperedge_member_rows`: `853`
 - OCR-aware pipeline wrapper:
   - `run_top_venue_reference_ocr_graphify.py`
-- Latest extraction pass on `2026-06-03`:
-  - `OK-LOCAL`: `848`
+- Latest extraction pass on `2026-07-27`:
+  - `OK-LOCAL`: `853`
   - `OK-OCR`: `0`
   - `OK-API`: `0`
   - `FAIL`: `0`
@@ -173,6 +203,7 @@ Important manifests:
 - `public_oa_sweep\public_oa_sweep_manifest.json`
 - `public_oa_sweep\materialize_skipped_manifest.json`
 - `publisher_access_retry\publisher_access_retry_manifest.json`
+- `manual_dynamic_observability_import_20260727.json`
 - `ocr_graphify_summary.json`
 
 Recommended local workflow for this corpus:
@@ -221,12 +252,20 @@ Official publisher-access retry without proxy:
   - run extraction/OCR only when new root PDFs arrive or markdown is pending
   - rebuild root Graphify and Neo4j exports after extraction
   - rebuild the merged reviewed graph after Graphify
+  - audit all three turbovec indexes every hourly watcher pass, including after
+    the daily arXiv loop has already succeeded
+  - rebuild all turbovec indexes and HTML reports automatically only when stale
   - skip heavy ingest steps on no-op days
+
+Current daily-loop status is tracked in `references/daily-loop-state.md`. The
+detailed entries below preserve the `2026-06-12` automation history; the latest
+manual merged-review and turbovec refresh is recorded separately below.
+
 - Latest full-loop state:
-  - `last_attempt_local_date`: `2026-06-12`
+  - `last_attempt_local_date`: `2026-07-25`
   - `last_result`: `success`
   - `last_candidate_count`: `12`
-  - `last_download_count`: `6`
+  - `last_download_count`: `1`
   - `last_imported_count`: `0`
   - `last_pending_markdown_count`: `0`
   - `last_extraction_ran`: `false`
@@ -260,14 +299,61 @@ Official publisher-access retry without proxy:
   - merged query smoke test: `SG2Loc scene graph visual localization` returns `2606.11880` as rank `1`
   - all-summary manifest: `turbovec-corpora-summary.json`
   - refreshed HTML reports: `corpus_report.html`, `references-out\merged_corpus_review\corpus_report.html`, `references-out\top_venue_reference_expansion\corpus_report.html`
+- Latest manual merged-review and turbovec rebuild on `2026-07-25T19:50:54`:
+  - fixed Windows `MAX_PATH` handling for derived per-paper reference files by
+    using a readable prefix plus stable hash when needed
+  - merged reviewed corpus rebuilt from `964` root markdown + `848` top-venue markdown
+  - merged final identity-dedup graph: `1787` document nodes, `1895` total nodes,
+    `5050` edges, `9` hyperedges
+  - merged Neo4j export: `1895` node rows, `5050` edge rows, `1794` hyperedge-member rows
+  - turbovec corpora refreshed: `3`
+  - root turbovec: `964` markdown, `1787` graph-backed papers, `45517` chunks, `0` unmapped files
+  - merged turbovec: `1812` markdown, `1787` identity-dedup papers, `59112` chunks, `0` unmapped files
+  - top-venue turbovec: `848` markdown, `848` papers, `13595` chunks, `0` unmapped files
+  - file-level source audit: `0` missing, `0` extra across all three corpora
+  - `DL-SLAM` is graph-backed with `11` indexed chunks and appears at rank `3`
+    for the distinctive-phrase smoke query with `search_k=500`
+  - all-summary manifest refreshed: `turbovec-corpora-summary.json`
+  - refreshed HTML reports: `corpus_report.html`, `references-out\merged_corpus_review\corpus_report.html`, `references-out\top_venue_reference_expansion\corpus_report.html`
+- Targeted dynamic-observability prior import on `2026-07-27`:
+  - added five verified public full texts to the staged top-venue corpus:
+    `Good Features to Track for Visual SLAM`, `Attention and Anticipation in
+    Fast Visual-Inertial Navigation`, `Good Feature Selection for Least
+    Squares Pose Optimization in VO/VSLAM`, `Good Feature Matching`, and
+    `Good Graph to Optimize`
+  - import manifest:
+    `references-out\top_venue_reference_expansion\manual_dynamic_observability_import_20260727.json`
+  - top-venue corpus refreshed to `853` PDFs/markdown files, `853` reviewed
+    papers, `13676` chunks, and `0` unmapped files
+  - merged reviewed corpus rebuilt from `964` root markdown + `853` top-venue
+    markdown; final graph has `1792` documents, `1900` nodes, `5066` edges,
+    and `9` hyperedges
+  - merged turbovec refreshed to `1817` markdown files, `1792` papers,
+    `59193` chunks, and `0` unmapped files
+  - semantic smoke query `pose Jacobian Max-logDet observability feature
+    selection visual SLAM` returned the new IROS 2018 paper at rank `1` and
+    the new CVPR 2015 paper at rank `2`
 - Retry policy: after success the guard skips repeat runs on the same local day; after failure it allows same-day retry.
 - Windows scheduled-task registration was attempted, but task creation returned `Access is denied`. The active fallback is the Startup-folder launcher, which runs the full-loop guard on login.
 
 ## Remote Gateway
 
+- Latest remote verification on `2026-07-28`:
+  - local gateway, public HTTPS `/health`, unauthenticated `/skill` (`401`),
+    and authenticated `/skill/context` all passed
+  - `paper_index_source`: `merged_graph`; root corpus count: `964`
+  - the bearer token was rotated after an insecure-endpoint incident; its value
+    remains only in `tmp\gateway_8766.env.json`
+  - Cloudflare and Bandwagon watchdog manifest subprocesses now report explicit
+    exit code `0` and `manifest_refresh_ok=true`
+  - transient watchdog logs are capped at `40` files per run type
+  - local skill discovery links now exist for `.agents`, Claude, Gemini, and
+    OpenCode, all targeting the canonical `.codex\skills\slam-ai` directory
 - Gateway repo: `C:\Users\Administrator\Downloads\slam-ai-skill-gateway`
 - GitHub repo: `https://github.com/kenchikuliu/slam-ai-skill-gateway`
 - Latest gateway commits:
+  - `8dfb739` Harden remote endpoint health and publication
+  - `a6fc372` Publish authentication-safe endpoint metadata
   - `5912431` Add startup remote access self-check
   - `8b66aa1` Add manifest-first remote examples
   - `8f289aa` Add Cloudflare named tunnel support
@@ -284,14 +370,17 @@ Official publisher-access retry without proxy:
   - tracked file: `C:\Users\Administrator\Downloads\slam-ai-skill-gateway\public\slam-ai-endpoints.json`
   - raw URL: `https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json`
   - token policy: `token_included=false`; do not put bearer tokens in Git
-  - remote-client rule: use `active_base_url`, or the lowest-priority endpoint with `health_ok=true`
+  - remote-client rule: use `active_base_url`, or the lowest-priority endpoint
+    with both `health_ok=true` and `authentication_safe=true`
   - remote-client examples: `examples\query_status.ps1`, `examples\search_papers.ps1`, and `examples\query_skill_context.ps1` now resolve `active_base_url` from the GitHub manifest by default
   - base URL override: set `SLAM_AI_BASE_URL` only to force a specific LAN/VPS/tunnel endpoint; set `SLAM_AI_ENDPOINT_MANIFEST_URL` only to use a different manifest
-  - current active base URL on `2026-06-04`: `https://daisy-limousines-brunswick-park.trycloudflare.com`
+  - `active_base_url` is dynamic; always read the raw manifest for the current
+    HTTPS URL instead of copying an older Quick Tunnel hostname
   - current priority order after Named Tunnel support:
     - Cloudflare Named Tunnel priority `5` when configured and healthy
     - Cloudflare Quick Tunnel priority `10` when healthy
-    - HK VPS path proxy priority `20` when healthy
+    - HK VPS HTTP path proxy is published with `authentication_safe=false` and
+      is not eligible for bearer-authenticated client selection
 - HTTP gateway:
   - host: `0.0.0.0`
   - port: `8766`
@@ -320,7 +409,8 @@ Official publisher-access retry without proxy:
   - script: `C:\Users\Administrator\Downloads\slam-ai-skill-gateway\scripts\start_cloudflare_quick_tunnel.ps1`
   - watchdog: `C:\Users\Administrator\Downloads\slam-ai-skill-gateway\scripts\watch_cloudflare_quick_tunnel.ps1`
   - tunnel state: `C:\Users\Administrator\Downloads\slam-ai-skill-gateway\tmp\cloudflare_8766.state.json`
-  - current verified public URL on `2026-06-04`: `https://daisy-limousines-brunswick-park.trycloudflare.com`
+  - current URL is published through the endpoint manifest and must not be
+    hard-coded
   - login startup: `C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-cloudflare-watchdog.cmd`
   - disabled old direct startup: `C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\slam-ai-cloudflare-8766.cmd.disabled`
   - watchdog behavior: checks local `127.0.0.1:8766/health`, starts the gateway if needed, checks Cloudflare `/health`, restarts Quick Tunnel when needed, and periodically refreshes plus pushes the public endpoint manifest
@@ -363,6 +453,8 @@ Official publisher-access retry without proxy:
   - watchdog is now conservative by default: checks every `300` seconds, restarts only after `3` consecutive failures, and uses `1800` seconds restart cooldown
   - Nginx integration: existing BT/aaPanel default site path proxy at `/slam-ai/`; the VPS root site was not replaced
   - external port `8766` timed out from Windows, so the stable public entry uses port `80` plus `/slam-ai`
+  - security status: the current path is plain HTTP, so it is health-diagnostic
+    only; do not send the bearer token through it until HTTPS is configured
 - Latest verification:
   - `python -m compileall src` succeeded in the gateway repo
   - PDF-only smoke test returned `/skill` and `/skill/context` with `paper_index_source: pdf_fallback`
