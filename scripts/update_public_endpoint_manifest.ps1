@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "remote_access_common.ps1")
 
 if (-not $OutputPath) {
     $OutputPath = Join-Path $RepoRoot "public\slam-ai-endpoints.json"
@@ -15,24 +16,7 @@ if (-not $OutputPath) {
 function Test-Health {
     param([string]$BaseUrl)
     $HealthUrl = ($BaseUrl.TrimEnd("/")) + "/health"
-    try {
-        $Response = Invoke-RestMethod -Uri $HealthUrl -TimeoutSec $TimeoutSeconds
-        return [ordered]@{
-            ok = [bool]$Response.ok
-            status_code = 200
-            error = ""
-        }
-    } catch {
-        $StatusCode = $null
-        if ($_.Exception.Response) {
-            $StatusCode = [int]$_.Exception.Response.StatusCode
-        }
-        return [ordered]@{
-            ok = $false
-            status_code = $StatusCode
-            error = $_.Exception.GetType().Name
-        }
-    }
+    return Test-SlamAiGatewayHealth -HealthUrl $HealthUrl -TimeoutSeconds $TimeoutSeconds
 }
 
 function Add-Endpoint {
@@ -62,6 +46,7 @@ function Add-Endpoint {
         health_status_code = $Health.status_code
         health_error = $Health.error
         stable_url = $Stable
+        authentication_safe = Test-SlamAiSecureRemoteBaseUrl -BaseUrl $BaseUrl
         priority = if ($Health.ok) { $HealthyPriority } else { $UnhealthyPriority }
         note = $Note
     }) | Out-Null
@@ -112,19 +97,17 @@ if ($NamedTunnelBaseUrl) {
 
 $CloudflareStatePath = Join-Path $RepoRoot "tmp\cloudflare_8766.state.json"
 if (Test-Path -LiteralPath $CloudflareStatePath) {
-    $CloudflareState = Get-Content -LiteralPath $CloudflareStatePath -Raw | ConvertFrom-Json
-    foreach ($Url in @($CloudflareState.urls)) {
-        if ($Url -and $Url -like "https://*.trycloudflare.com*") {
-            Add-Endpoint `
-                -Endpoints $Endpoints `
-                -Name "cloudflare-quick-tunnel" `
-                -Kind "cloudflare_quick_tunnel" `
-                -BaseUrl $Url `
-                -Stable $false `
-                -HealthyPriority 10 `
-                -UnhealthyPriority 80 `
-                -Note "Best current public fallback. URL can change after cloudflared restarts."
-        }
+    $QuickTunnelUrl = Get-SlamAiRunningQuickTunnelUrl -StatePath $CloudflareStatePath
+    if ($QuickTunnelUrl) {
+        Add-Endpoint `
+            -Endpoints $Endpoints `
+            -Name "cloudflare-quick-tunnel" `
+            -Kind "cloudflare_quick_tunnel" `
+            -BaseUrl $QuickTunnelUrl `
+            -Stable $false `
+            -HealthyPriority 10 `
+            -UnhealthyPriority 80 `
+            -Note "Best current public fallback. URL can change after cloudflared restarts."
     }
 }
 
@@ -134,23 +117,23 @@ Add-Endpoint `
     -Kind "bandwagon_vps_path_proxy" `
     -BaseUrl $HkBaseUrl `
     -Stable $true `
-    -HealthyPriority 8 `
+    -HealthyPriority 20 `
     -UnhealthyPriority 90 `
-    -Note "Preferred fixed public API when healthy. Depends on the Windows-to-VPS reverse SSH tunnel."
+    -Note "Diagnostic fallback only until HTTPS is configured. Do not send bearer tokens over plain HTTP."
 
 $SortedEndpoints = @($Endpoints | Sort-Object @{Expression = { $_.priority }; Ascending = $true}, @{Expression = { $_.name }; Ascending = $true})
-$Active = $SortedEndpoints | Where-Object { $_.health_ok } | Select-Object -First 1
-if (-not $Active) {
-    $Active = $SortedEndpoints | Select-Object -First 1
-}
+$Active = Select-SlamAiHealthyEndpoint -Manifest ([pscustomobject]@{
+    active_base_url = ""
+    endpoints = $SortedEndpoints
+})
 
 $Manifest = [ordered]@{
     schema = "slam-ai-endpoints.v1"
     token_required = $true
     token_included = $false
     bearer_header = "Authorization: Bearer <SLAM_AI_TOKEN>"
-    active_base_url = if ($Active) { $Active.base_url } else { "" }
-    selection_rule = "Use the lowest-priority endpoint with health_ok=true. If none are healthy, retry later or use the local host."
+    active_base_url = if ($null -ne $Active) { $Active.base_url } else { "" }
+    selection_rule = "Use active_base_url or the lowest-priority endpoint with health_ok=true and authentication_safe=true. Never send bearer tokens to plain HTTP endpoints."
     endpoints = $SortedEndpoints
 }
 

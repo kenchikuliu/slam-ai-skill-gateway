@@ -14,6 +14,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "remote_access_common.ps1")
 
 $TmpDir = Join-Path $RepoRoot "tmp"
 New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
@@ -50,24 +51,7 @@ function Write-WatchLog {
 
 function Test-HttpUrl {
     param([string]$Url)
-    try {
-        $Response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec $TimeoutSeconds
-        return [ordered]@{
-            ok = $true
-            status_code = [int]$Response.StatusCode
-            error = ""
-        }
-    } catch {
-        $StatusCode = $null
-        if ($_.Exception.Response) {
-            $StatusCode = [int]$_.Exception.Response.StatusCode
-        }
-        return [ordered]@{
-            ok = $false
-            status_code = $StatusCode
-            error = $_.Exception.Message
-        }
-    }
+    return Test-SlamAiGatewayHealth -HealthUrl $Url -TimeoutSeconds $TimeoutSeconds
 }
 
 function Invoke-PowerShellScriptWithTimeout {
@@ -93,6 +77,7 @@ function Invoke-PowerShellScriptWithTimeout {
         return '"' + ($Value -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
     }
 
+    Remove-SlamAiTransientRunLogs -Directory $TmpDir -Prefix $Name
     $Stamp = (Get-Date).ToString("yyyyMMdd_HHmmss_fff")
     $StdoutPath = Join-Path $TmpDir "$Name.$Stamp.out.log"
     $StderrPath = Join-Path $TmpDir "$Name.$Stamp.err.log"
@@ -122,8 +107,11 @@ function Invoke-PowerShellScriptWithTimeout {
             return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $true; error = "timeout"; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
         }
 
+        # Complete asynchronous stdout/stderr draining before reading ExitCode.
+        $Process.WaitForExit()
         $Process.Refresh()
-        return [pscustomobject][ordered]@{ ok = ($Process.ExitCode -eq 0); exit_code = $Process.ExitCode; timed_out = $false; error = ""; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
+        $ExitCode = [int]$Process.ExitCode
+        return [pscustomobject][ordered]@{ ok = ($ExitCode -eq 0); exit_code = $ExitCode; timed_out = $false; error = ""; pid = $Process.Id; stdout = $StdoutPath; stderr = $StderrPath }
     } catch {
         return [pscustomobject][ordered]@{ ok = $false; exit_code = $null; timed_out = $false; error = $_.Exception.Message; pid = $null; stdout = $StdoutPath; stderr = $StderrPath }
     }

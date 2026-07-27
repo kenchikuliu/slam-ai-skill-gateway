@@ -1,3 +1,5 @@
+. (Join-Path $PSScriptRoot "..\scripts\remote_access_common.ps1")
+
 function Resolve-SlamAiGatewayBaseUrl {
     param(
         [string]$ManifestUrl = "",
@@ -24,17 +26,11 @@ function Resolve-SlamAiGatewayBaseUrl {
 
     try {
         $Manifest = Invoke-RestMethod -Uri $ManifestUrl -TimeoutSec 20
-        if ($Manifest.active_base_url) {
-            return ([string]$Manifest.active_base_url).TrimEnd("/")
+        $Selected = Select-SlamAiHealthyEndpoint -Manifest $Manifest
+        if ($null -ne $Selected) {
+            return ([string]$Selected.base_url).TrimEnd("/")
         }
-
-        $Healthy = @($Manifest.endpoints |
-            Where-Object { $_.health_ok } |
-            Sort-Object @{ Expression = { [int]$_.priority }; Ascending = $true } |
-            Select-Object -First 1)
-        if ($Healthy.Count -gt 0 -and $Healthy[0].base_url) {
-            return ([string]$Healthy[0].base_url).TrimEnd("/")
-        }
+        throw "Endpoint manifest contains no healthy endpoint."
     } catch {
         Write-Warning "Could not read endpoint manifest; falling back to $FallbackLocalBaseUrl. Error: $($_.Exception.Message)"
     }

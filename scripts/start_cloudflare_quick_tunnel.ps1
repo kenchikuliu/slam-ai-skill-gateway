@@ -10,6 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "remote_access_common.ps1")
 
 if (-not $CloudflaredExe) {
     $LocalTool = Join-Path $RepoRoot "tools\cloudflared.exe"
@@ -79,7 +80,6 @@ $Process = Start-Process `
     -WindowStyle Hidden `
     -PassThru
 
-$UrlPattern = "https://[A-Za-z0-9-]+(?:-[A-Za-z0-9-]+)*\.trycloudflare\.com"
 $Urls = @()
 for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Milliseconds 500
@@ -91,13 +91,17 @@ for ($i = 0; $i -lt 40; $i++) {
         $Output += "`n"
         $Output += Get-Content -Raw -LiteralPath $Stderr -ErrorAction SilentlyContinue
     }
-    $Urls = @([regex]::Matches($Output, $UrlPattern) | ForEach-Object { $_.Value } | Select-Object -Unique)
+    $Urls = @(Get-SlamAiQuickTunnelUrlsFromText -Text $Output)
     if ($Urls.Count -gt 0) {
         break
     }
     if ($Process.HasExited) {
         break
     }
+}
+
+if ($Process.HasExited) {
+    $Urls = @()
 }
 
 $State = [ordered]@{
@@ -116,6 +120,10 @@ $State = [ordered]@{
 
 $State | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 Write-Output ($State | ConvertTo-Json -Depth 4)
+
+if ($State.status -ne "running") {
+    throw "Cloudflare Quick Tunnel did not produce a live generated tunnel URL. See $Stderr."
+}
 
 if ($UpdateEndpointManifest) {
     $ManifestScript = Join-Path $RepoRoot "scripts\update_public_endpoint_manifest.ps1"

@@ -13,6 +13,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "remote_access_common.ps1")
 
 $ResolvedRepo = (Resolve-Path -LiteralPath $RepoRoot).Path.TrimEnd("\")
 $TmpDir = Join-Path $ResolvedRepo "tmp"
@@ -143,17 +144,9 @@ function Resolve-ManifestBaseUrl {
     $EndpointCount = 0
     if ($Manifest) {
         $EndpointCount = @($Manifest.endpoints).Count
-        if ($Manifest.active_base_url) {
-            $BaseUrl = ([string]$Manifest.active_base_url).TrimEnd("/")
-        }
-        if (-not $BaseUrl) {
-            $Healthy = @($Manifest.endpoints |
-                Where-Object { $_.health_ok } |
-                Sort-Object @{ Expression = { [int]$_.priority }; Ascending = $true } |
-                Select-Object -First 1)
-            if ($Healthy.Count -gt 0 -and $Healthy[0].base_url) {
-                $BaseUrl = ([string]$Healthy[0].base_url).TrimEnd("/")
-            }
+        $Selected = Select-SlamAiHealthyEndpoint -Manifest $Manifest
+        if ($null -ne $Selected) {
+            $BaseUrl = ([string]$Selected.base_url).TrimEnd("/")
         }
     }
     return [ordered]@{
