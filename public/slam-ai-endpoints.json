@@ -9,7 +9,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://brunette-beginner-enrollment-fundamental.trycloudflare.com",
+                          "base_url":  "https://book-pin-sugar-protein.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  null,
                           "health_error":  "WebException",
