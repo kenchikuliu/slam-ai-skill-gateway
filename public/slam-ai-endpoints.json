@@ -9,7 +9,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://industrial-featuring-project-email.trycloudflare.com",
+                          "base_url":  "https://empirical-airfare-tech-soma.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  null,
                           "health_error":  "WebException",
