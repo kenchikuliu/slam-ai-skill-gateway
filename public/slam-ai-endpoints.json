@@ -3,13 +3,13 @@
     "token_required":  true,
     "token_included":  false,
     "bearer_header":  "Authorization: Bearer \u003cSLAM_AI_TOKEN\u003e",
-    "active_base_url":  "https://essentially-cook-troops-detect.trycloudflare.com",
+    "active_base_url":  "https://literature-therapeutic-attempt-harrison.trycloudflare.com",
     "selection_rule":  "Use active_base_url or the lowest-priority endpoint with health_ok=true and authentication_safe=true. Never send bearer tokens to plain HTTP endpoints.",
     "endpoints":  [
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://essentially-cook-troops-detect.trycloudflare.com",
+                          "base_url":  "https://literature-therapeutic-attempt-harrison.trycloudflare.com",
                           "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
