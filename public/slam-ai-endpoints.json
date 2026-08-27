@@ -22,12 +22,12 @@
                           "name":  "hk-vps-path-proxy",
                           "kind":  "bandwagon_vps_path_proxy",
                           "base_url":  "http://83.229.126.28/slam-ai",
-                          "health_ok":  false,
-                          "health_status_code":  502,
-                          "health_error":  "WebException",
+                          "health_ok":  true,
+                          "health_status_code":  200,
+                          "health_error":  "",
                           "stable_url":  true,
                           "authentication_safe":  false,
-                          "priority":  90,
+                          "priority":  20,
                           "note":  "Diagnostic fallback only until HTTPS is configured. Do not send bearer tokens over plain HTTP."
                       }
                   ]
