@@ -3,9 +3,21 @@
     "token_required":  true,
     "token_included":  false,
     "bearer_header":  "Authorization: Bearer \u003cSLAM_AI_TOKEN\u003e",
-    "active_base_url":  "",
+    "active_base_url":  "https://useful-remembered-gzip-arc.trycloudflare.com",
     "selection_rule":  "Use active_base_url or the lowest-priority endpoint with health_ok=true and authentication_safe=true. Never send bearer tokens to plain HTTP endpoints.",
     "endpoints":  [
+                      {
+                          "name":  "cloudflare-quick-tunnel",
+                          "kind":  "cloudflare_quick_tunnel",
+                          "base_url":  "https://useful-remembered-gzip-arc.trycloudflare.com",
+                          "health_ok":  true,
+                          "health_status_code":  200,
+                          "health_error":  "",
+                          "stable_url":  false,
+                          "authentication_safe":  true,
+                          "priority":  10,
+                          "note":  "Best current public fallback. URL can change after cloudflared restarts."
+                      },
                       {
                           "name":  "hk-vps-path-proxy",
                           "kind":  "bandwagon_vps_path_proxy",
@@ -17,18 +29,6 @@
                           "authentication_safe":  false,
                           "priority":  20,
                           "note":  "Diagnostic fallback only until HTTPS is configured. Do not send bearer tokens over plain HTTP."
-                      },
-                      {
-                          "name":  "cloudflare-quick-tunnel",
-                          "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://useful-remembered-gzip-arc.trycloudflare.com",
-                          "health_ok":  false,
-                          "health_status_code":  530,
-                          "health_error":  "WebException",
-                          "stable_url":  false,
-                          "authentication_safe":  true,
-                          "priority":  80,
-                          "note":  "Best current public fallback. URL can change after cloudflared restarts."
                       }
                   ]
 }
