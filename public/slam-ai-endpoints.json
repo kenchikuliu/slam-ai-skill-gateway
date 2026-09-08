@@ -21,9 +21,9 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://field-phillips-queue-galleries.trycloudflare.com",
+                          "base_url":  "https://requests-chi-assignment-anything.trycloudflare.com",
                           "health_ok":  false,
-                          "health_status_code":  530,
+                          "health_status_code":  502,
                           "health_error":  "WebException",
                           "stable_url":  false,
                           "authentication_safe":  true,
