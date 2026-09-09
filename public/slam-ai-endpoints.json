@@ -9,7 +9,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://florida-enlargement-notifications-changes.trycloudflare.com",
+                          "base_url":  "https://cohen-dis-enquiry-interpreted.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  null,
                           "health_error":  "WebException",
@@ -23,7 +23,7 @@
                           "kind":  "bandwagon_vps_path_proxy",
                           "base_url":  "http://83.229.126.28/slam-ai",
                           "health_ok":  false,
-                          "health_status_code":  null,
+                          "health_status_code":  502,
                           "health_error":  "WebException",
                           "stable_url":  true,
                           "authentication_safe":  false,
