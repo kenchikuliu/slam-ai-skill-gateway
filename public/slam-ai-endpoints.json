@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://class-gate-library-dimensions.trycloudflare.com",
+                          "base_url":  "https://labels-genius-fairfield-clubs.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  530,
                           "health_error":  "WebException",
