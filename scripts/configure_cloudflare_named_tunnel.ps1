@@ -100,7 +100,7 @@ $CredentialPath = Get-ConfigString -ConfigObject $Config -Name "credentials_file
 $CloudflaredConfigPath = Get-ConfigString -ConfigObject $Config -Name "cloudflared_config" -Fallback (Join-Path $TmpDir "cloudflare_named_tunnel.yml")
 $StatePath = Join-Path $TmpDir "cloudflare_named_tunnel.state.json"
 
-$ListOutput = & $CloudflaredExe tunnel --origincert $OriginCert list --output json --name $TunnelName 2>&1
+$ListOutput = & $CloudflaredExe tunnel --loglevel error --origincert $OriginCert list --output json --name $TunnelName 2>&1
 if ($LASTEXITCODE -ne 0) {
     throw "cloudflared tunnel list failed: $($ListOutput -join "`n")"
 }
@@ -114,13 +114,13 @@ try {
 }
 
 if (-not $Tunnel) {
-    $CreateOutput = & $CloudflaredExe tunnel --origincert $OriginCert create --credentials-file $CredentialPath --output json $TunnelName 2>&1
+    $CreateOutput = & $CloudflaredExe tunnel --loglevel error --origincert $OriginCert create --credentials-file $CredentialPath --output json $TunnelName 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "cloudflared tunnel create failed: $($CreateOutput -join "`n")"
     }
     $Tunnel = $CreateOutput | Out-String | ConvertFrom-Json
 } elseif (-not (Test-Path -LiteralPath $CredentialPath)) {
-    $TokenOutput = & $CloudflaredExe tunnel --origincert $OriginCert token --cred-file $CredentialPath $TunnelName 2>&1
+    $TokenOutput = & $CloudflaredExe tunnel --loglevel error --origincert $OriginCert token --cred-file $CredentialPath $TunnelName 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "cloudflared tunnel token failed: $($TokenOutput -join "`n")"
     }
@@ -128,7 +128,7 @@ if (-not $Tunnel) {
 
 $TunnelId = if ($Tunnel.id) { [string]$Tunnel.id } elseif ($Tunnel.ID) { [string]$Tunnel.ID } else { [string]$TunnelName }
 
-$RouteArgs = @("tunnel", "--origincert", $OriginCert, "route", "dns")
+$RouteArgs = @("tunnel", "--loglevel", "error", "--origincert", $OriginCert, "route", "dns")
 if ($OverwriteDns) {
     $RouteArgs += "--overwrite-dns"
 }
