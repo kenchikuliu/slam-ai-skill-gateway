@@ -14,7 +14,7 @@ function Resolve-SlamAiGatewayBaseUrl {
         $ManifestUrl = if ($env:SLAM_AI_ENDPOINT_MANIFEST_URL) {
             $env:SLAM_AI_ENDPOINT_MANIFEST_URL
         } else {
-            "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json"
+            "https://github.com/kenchikuliu/slam-ai-skill-gateway/raw/refs/heads/main/public/slam-ai-endpoints.json"
         }
     }
 
@@ -25,12 +25,29 @@ function Resolve-SlamAiGatewayBaseUrl {
     }
 
     try {
-        $Manifest = Invoke-RestMethod -Uri $ManifestUrl -TimeoutSec 20
-        $Selected = Select-SlamAiHealthyEndpoint -Manifest $Manifest
-        if ($null -ne $Selected) {
-            return ([string]$Selected.base_url).TrimEnd("/")
+        $Manifest = Invoke-RestMethod `
+            -Uri $ManifestUrl `
+            -Headers @{ "Cache-Control" = "no-cache" } `
+            -TimeoutSec 20
+        $Candidates = @(
+            $Manifest.endpoints |
+                Where-Object {
+                    $_.health_ok -eq $true -and
+                    $_.base_url -and
+                    (Test-SlamAiSecureRemoteBaseUrl ([string]$_.base_url))
+                } |
+                Sort-Object @{ Expression = { [int]$_.priority }; Ascending = $true }
+        )
+        foreach ($Candidate in $Candidates) {
+            $BaseUrl = ([string]$Candidate.base_url).TrimEnd("/")
+            $Health = Test-SlamAiGatewayHealth `
+                -HealthUrl "$BaseUrl/health" `
+                -TimeoutSeconds 10
+            if ($Health.ok) {
+                return $BaseUrl
+            }
         }
-        throw "Endpoint manifest contains no healthy endpoint."
+        throw "Endpoint manifest contains no currently reachable secure endpoint."
     } catch {
         Write-Warning "Could not read endpoint manifest; falling back to $FallbackLocalBaseUrl. Error: $($_.Exception.Message)"
     }

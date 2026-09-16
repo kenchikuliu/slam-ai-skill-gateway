@@ -1,6 +1,6 @@
 param(
     [string]$RepoRoot = "C:\Users\Administrator\Downloads\slam-ai-skill-gateway",
-    [string]$ManifestUrl = "https://raw.githubusercontent.com/kenchikuliu/slam-ai-skill-gateway/main/public/slam-ai-endpoints.json",
+    [string]$ManifestUrl = "https://github.com/kenchikuliu/slam-ai-skill-gateway/raw/refs/heads/main/public/slam-ai-endpoints.json",
     [string]$GatewayConfigPath = "",
     [string]$LocalHealthUrl = "http://127.0.0.1:8766/health",
     [string]$Query = "gaussian slam",
