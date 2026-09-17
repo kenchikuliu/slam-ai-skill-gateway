@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://begin-nuts-races-invoice.trycloudflare.com",
+                          "base_url":  "https://provision-debate-sticks-livestock.trycloudflare.com",
                           "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
