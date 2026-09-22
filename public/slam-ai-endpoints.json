@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://realty-bra-audio-expects.trycloudflare.com",
+                          "base_url":  "https://identified-wing-penny-games.trycloudflare.com",
                           "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
