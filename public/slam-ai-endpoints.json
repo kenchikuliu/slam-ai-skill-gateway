@@ -21,13 +21,13 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://dennis-finance-hello-genetic.trycloudflare.com",
-                          "health_ok":  true,
-                          "health_status_code":  200,
-                          "health_error":  "",
+                          "base_url":  "https://growth-radius-optimal-purchase.trycloudflare.com",
+                          "health_ok":  false,
+                          "health_status_code":  530,
+                          "health_error":  "WebException",
                           "stable_url":  false,
                           "authentication_safe":  true,
-                          "priority":  10,
+                          "priority":  80,
                           "note":  "Best current public fallback. URL can change after cloudflared restarts."
                       },
                       {
