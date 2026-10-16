@@ -21,9 +21,9 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://organized-mixer-identify-export.trycloudflare.com",
+                          "base_url":  "https://runs-ecology-minneapolis-favorites.trycloudflare.com",
                           "health_ok":  false,
-                          "health_status_code":  502,
+                          "health_status_code":  530,
                           "health_error":  "WebException",
                           "stable_url":  false,
                           "authentication_safe":  true,
