@@ -11,7 +11,7 @@
                           "kind":  "cloudflare_named_tunnel",
                           "base_url":  "https://slam-ai.ai-gpt.live",
                           "health_ok":  false,
-                          "health_status_code":  530,
+                          "health_status_code":  null,
                           "health_error":  "WebException",
                           "stable_url":  true,
                           "authentication_safe":  true,
@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://yukon-situations-cream-voters.trycloudflare.com",
+                          "base_url":  "https://airplane-horse-skill-burns.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  null,
                           "health_error":  "WebException",
