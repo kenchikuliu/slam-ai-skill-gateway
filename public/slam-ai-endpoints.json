@@ -11,12 +11,24 @@
                           "kind":  "cloudflare_named_tunnel",
                           "base_url":  "https://slam-ai.ai-gpt.live",
                           "health_ok":  false,
-                          "health_status_code":  null,
+                          "health_status_code":  530,
                           "health_error":  "WebException",
                           "stable_url":  true,
                           "authentication_safe":  true,
                           "priority":  70,
                           "note":  "Preferred stable Cloudflare Tunnel hostname. Requires local named tunnel config and DNS route."
+                      },
+                      {
+                          "name":  "cloudflare-quick-tunnel",
+                          "kind":  "cloudflare_quick_tunnel",
+                          "base_url":  "https://coaches-instruction-oliver-dental.trycloudflare.com",
+                          "health_ok":  false,
+                          "health_status_code":  530,
+                          "health_error":  "WebException",
+                          "stable_url":  false,
+                          "authentication_safe":  true,
+                          "priority":  80,
+                          "note":  "Best current public fallback. URL can change after cloudflared restarts."
                       },
                       {
                           "name":  "hk-vps-path-proxy",
