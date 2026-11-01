@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://italiano-hint-wearing-pole.trycloudflare.com",
+                          "base_url":  "https://charts-thunder-live-results.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  null,
                           "health_error":  "WebException",
