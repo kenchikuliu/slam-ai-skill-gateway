@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://curious-exhibit-says-versus.trycloudflare.com",
+                          "base_url":  "https://winter-producers-mechanical-llp.trycloudflare.com",
                           "health_ok":  false,
                           "health_status_code":  530,
                           "health_error":  "WebException",
