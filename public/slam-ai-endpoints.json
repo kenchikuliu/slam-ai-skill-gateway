@@ -21,7 +21,7 @@
                       {
                           "name":  "cloudflare-quick-tunnel",
                           "kind":  "cloudflare_quick_tunnel",
-                          "base_url":  "https://external-unsigned-mercury-somewhat.trycloudflare.com",
+                          "base_url":  "https://low-candidate-demographic-vacancies.trycloudflare.com",
                           "health_ok":  true,
                           "health_status_code":  200,
                           "health_error":  "",
